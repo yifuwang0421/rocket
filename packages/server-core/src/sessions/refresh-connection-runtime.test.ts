@@ -2,7 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, jest } from 'bun:test'
 import { mkdtempSync, rmSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
-import { resolveBackendContext } from '@rocket/shared/agent/backend'
+import { BACKEND_CAPABILITIES, resolveBackendContext } from '@rocket/shared/agent/backend'
+import type { LlmConnection } from '@rocket/shared/config'
 import { loadWorkspaceConfig } from '@rocket/shared/workspaces'
 import { SessionManager, createManagedSession } from './SessionManager.ts'
 import { buildRestartRequiredSignature } from './runtime-config.ts'
@@ -25,6 +26,45 @@ interface AgentStub {
   updateRuntimeConfig: jest.Mock
   dispose: () => void
   disposeForRestart?: () => Promise<void>
+}
+
+const TEST_CONNECTION: LlmConnection = {
+  slug: 'slug-A',
+  name: 'Test custom endpoint',
+  providerType: 'pi_compat',
+  baseUrl: 'https://example.test/v1',
+  authType: 'none',
+  defaultModel: 'vision-model',
+  models: [{
+    id: 'vision-model',
+    name: 'Vision model',
+    shortName: 'Vision',
+    description: 'Deterministic runtime-refresh fixture',
+    provider: 'pi',
+    contextWindow: 128_000,
+    supportsImages: true,
+  }],
+  customEndpoint: {
+    api: 'openai-completions',
+    supportsImages: true,
+  },
+  createdAt: 1,
+}
+
+function resolveTestBackendContext(
+  args: Parameters<typeof resolveBackendContext>[0],
+): ReturnType<typeof resolveBackendContext> {
+  if (args.sessionConnectionSlug !== TEST_CONNECTION.slug) {
+    return resolveBackendContext(args)
+  }
+
+  return {
+    connection: TEST_CONNECTION,
+    provider: 'pi',
+    authType: 'none',
+    resolvedModel: args.managedModel ?? TEST_CONNECTION.defaultModel!,
+    capabilities: BACKEND_CAPABILITIES.pi,
+  }
 }
 
 function createAgentStub(opts: {
@@ -75,7 +115,7 @@ function injectSession(
     managed.backendRestartSignature = opts.backendRestartSignature
   } else {
     const workspaceConfig = loadWorkspaceConfig(workspaceRoot)
-    const ctx = resolveBackendContext({
+    const ctx = resolveTestBackendContext({
       sessionConnectionSlug: llmConnection,
       workspaceDefaultConnectionSlug: workspaceConfig?.defaults?.defaultLlmConnection,
     })
@@ -98,7 +138,7 @@ describe('refreshConnectionRuntime', () => {
 
   beforeEach(() => {
     tmpRoot = mkdtempSync(join(tmpdir(), 'sm-refresh-'))
-    sm = new SessionManager()
+    sm = new SessionManager(resolveTestBackendContext)
   })
 
   afterEach(() => {
@@ -211,8 +251,17 @@ describe('refreshConnectionRuntime', () => {
     const payload = agent.updateRuntimeConfig.mock.calls[0]?.[0]
     expect(payload).toBeDefined()
     expect(payload).toMatchObject({
-      model: expect.any(String),
-      runtime: expect.any(Object),
+      model: 'vision-model',
+      providerType: 'pi_compat',
+      authType: 'none',
+      runtime: {
+        baseUrl: 'https://example.test/v1',
+        customModels: [{
+          id: 'vision-model',
+          contextWindow: 128_000,
+          supportsImages: true,
+        }],
+      },
     })
     // The runtime envelope mirrors what `pi-agent.ts:requestRuntimeConfigUpdate`
     // unpacks — `customModels` shape preserves `supportsImages` when set.

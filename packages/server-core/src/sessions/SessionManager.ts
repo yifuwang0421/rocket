@@ -1202,6 +1202,10 @@ export function resolveMidStreamDeliveryOutcome(
 }
 
 export class SessionManager implements ISessionManager {
+  constructor(
+    private readonly resolveBackendContextForSession: typeof resolveBackendContext = resolveBackendContext,
+  ) {}
+
   private sessions: Map<string, ManagedSession> = new Map()
   // Delta batching for performance - reduces IPC events from 50+/sec to ~20/sec
   private pendingDeltas: Map<string, PendingDelta> = new Map()
@@ -2644,7 +2648,7 @@ export class SessionManager implements ISessionManager {
     }
 
     // Resolve backend target early for branching policy checks.
-    const targetBackendContext = resolveBackendContext({
+    const targetBackendContext = this.resolveBackendContextForSession({
       sessionConnectionSlug: options?.llmConnection,
       workspaceDefaultConnectionSlug: wsConfig?.defaults?.defaultLlmConnection,
       managedModel: resolvedModelOption,
@@ -2749,7 +2753,7 @@ export class SessionManager implements ISessionManager {
         throw new Error(`Invalid branch request: source session ${options.branchFromSessionId} not found`)
       }
 
-      const sourceBackendContext = resolveBackendContext({
+      const sourceBackendContext = this.resolveBackendContextForSession({
         sessionConnectionSlug: sourceManaged?.llmConnection || sourceSession.llmConnection,
         workspaceDefaultConnectionSlug: wsConfig?.defaults?.defaultLlmConnection,
         managedModel: sourceManaged?.model || sourceSession.model,
@@ -3188,7 +3192,7 @@ export class SessionManager implements ISessionManager {
     if (!managed.agent) return
 
     const workspaceConfig = loadWorkspaceConfig(managed.workspace.rootPath)
-    const backendContext = resolveBackendContext({
+    const backendContext = this.resolveBackendContextForSession({
       sessionConnectionSlug: managed.llmConnection,
       workspaceDefaultConnectionSlug: workspaceConfig?.defaults?.defaultLlmConnection,
       managedModel: managed.model,
@@ -3333,7 +3337,7 @@ export class SessionManager implements ISessionManager {
     await this.tryRefreshAgentRuntime(managed, 'send-path refresh')
 
     const workspaceConfig = loadWorkspaceConfig(managed.workspace.rootPath)
-    const backendContext = resolveBackendContext({
+    const backendContext = this.resolveBackendContextForSession({
       sessionConnectionSlug: managed.llmConnection,
       workspaceDefaultConnectionSlug: workspaceConfig?.defaults?.defaultLlmConnection,
       managedModel: managed.model,
@@ -6155,7 +6159,7 @@ export class SessionManager implements ISessionManager {
         managed.wasInterrupted = false
       }
 
-      const messageBackendContext = resolveBackendContext({
+      const messageBackendContext = this.resolveBackendContextForSession({
         sessionConnectionSlug: managed.llmConnection,
         workspaceDefaultConnectionSlug: loadWorkspaceConfig(workspaceRootPath)?.defaults?.defaultLlmConnection,
         managedModel: managed.model,
@@ -8602,7 +8606,7 @@ export class SessionManager implements ISessionManager {
     const workspaceRootPath = managed.workspace.rootPath
     const wsConfig = loadWorkspaceConfig(workspaceRootPath)
     const defaultModel = wsConfig?.defaults?.model
-    const backendContext = resolveBackendContext({
+    const backendContext = this.resolveBackendContextForSession({
       sessionConnectionSlug: managed.llmConnection,
       workspaceDefaultConnectionSlug: wsConfig?.defaults?.defaultLlmConnection,
       managedModel: managed.model || defaultModel,
