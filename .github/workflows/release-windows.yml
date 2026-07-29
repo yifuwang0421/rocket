@@ -1,4 +1,4 @@
-name: Release Windows
+name: Build Windows Internal
 
 on:
   workflow_dispatch:
@@ -16,17 +16,9 @@ permissions:
   contents: read
 
 jobs:
-  build-sign-publish:
+  build-internal-candidate:
     runs-on: windows-latest
     timeout-minutes: 90
-    env:
-      CSC_LINK: ${{ secrets.WINDOWS_CSC_LINK }}
-      CSC_KEY_PASSWORD: ${{ secrets.WINDOWS_CSC_KEY_PASSWORD }}
-      S3_VERSIONS_BUCKET_ENDPOINT: ${{ secrets.S3_VERSIONS_BUCKET_ENDPOINT }}
-      S3_VERSIONS_BUCKET_NAME: ${{ vars.S3_VERSIONS_BUCKET_NAME }}
-      S3_VERSIONS_BUCKET_REGION: ${{ vars.S3_VERSIONS_BUCKET_REGION }}
-      S3_VERSIONS_BUCKET_ACCESS_KEY_ID: ${{ secrets.S3_VERSIONS_BUCKET_ACCESS_KEY_ID }}
-      S3_VERSIONS_BUCKET_SECRET_ACCESS_KEY: ${{ secrets.S3_VERSIONS_BUCKET_SECRET_ACCESS_KEY }}
 
     steps:
       - name: Check out repository
@@ -56,21 +48,6 @@ jobs:
           }
           bun run check-version
 
-      - name: Verify release secrets
-        shell: pwsh
-        run: |
-          $required = @(
-            'CSC_LINK',
-            'CSC_KEY_PASSWORD',
-            'S3_VERSIONS_BUCKET_ENDPOINT',
-            'S3_VERSIONS_BUCKET_ACCESS_KEY_ID',
-            'S3_VERSIONS_BUCKET_SECRET_ACCESS_KEY'
-          )
-          $missing = @($required | Where-Object { -not [Environment]::GetEnvironmentVariable($_) })
-          if ($missing.Count -gt 0) {
-            throw "Missing release configuration: $($missing -join ', ')"
-          }
-
       - name: Install locked dependencies
         run: bun install --frozen-lockfile
         env:
@@ -79,32 +56,28 @@ jobs:
       - name: Run P0 quality gates
         run: bun run validate:ci
 
-      - name: Build, sign, verify, and publish
-        run: bun run build --platform=win32 --arch=x64 --upload --latest --script --skip-install
+      - name: Build internal Windows candidate
+        run: bun run build --platform=win32 --arch=x64 --skip-install
 
-      - name: Verify public release endpoints
+      - name: Verify internal candidate
+        run: bun run release:check:internal
+
+      - name: Record installer SHA-256
         shell: pwsh
         run: |
-          foreach ($attempt in 1..5) {
-            bun run release:check:online
-            if ($LASTEXITCODE -eq 0) {
-              exit 0
-            }
-            if ($attempt -lt 5) {
-              Write-Host "Public release is not ready yet; retrying in 15 seconds"
-              Start-Sleep -Seconds 15
-            }
-          }
-          throw "Public release verification failed after 5 attempts"
+          $artifact = 'apps/electron/release/Rocket-x64.exe'
+          $hash = (Get-FileHash -LiteralPath $artifact -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$hash  Rocket-x64.exe" | Set-Content -LiteralPath 'apps/electron/release/SHA256SUMS.txt' -Encoding ascii
+          Write-Host "SHA-256: $hash"
 
-      - name: Preserve signed release artifacts
-        if: always()
+      - name: Upload internal Windows candidate
         uses: actions/upload-artifact@v4
         with:
-          name: Rocket-Windows-${{ inputs.version }}
+          name: Rocket-Windows-Internal-${{ inputs.version }}
           path: |
             apps/electron/release/Rocket-x64.exe
             apps/electron/release/Rocket-x64.exe.blockmap
             apps/electron/release/latest.yml
-          if-no-files-found: warn
+            apps/electron/release/SHA256SUMS.txt
+          if-no-files-found: error
           retention-days: 14

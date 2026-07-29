@@ -15,6 +15,7 @@
     "install-app-security.test.ts",
     "release-check.test.ts",
     "release-check.ts",
+    "run-doc-tool-tests.ts",
     "run-workspace-tests.ts",
     "upload.test.ts",
     "upload.ts"

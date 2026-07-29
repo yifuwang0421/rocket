@@ -8,7 +8,7 @@ Rocket 是面向二级市场基本面研究的 AI 原生桌面工作台。它把
 
 - P0 品牌与运行时迁移：Rocket 包名、应用名、配置目录、服务端变量与桌面图标。
 - P0 工程基线：Electron 33.3.1，主进程、预加载、渲染器、资源构建可通过，Windows 桌面窗口可启动。
-- P0 发布签收：代码侧候选物与发布门禁已就绪；公开签收仍须完成 Authenticode 签名、对象存储、`agents.rocket.app` 和干净 Windows 环境在线安装/更新验收。详见 [P0 发布签收清单](docs/p0-release-signoff.md)。
+- P0 内部交付：质量门禁与 Windows 候选物已就绪；P0 只要求内部安装、启动和卸载验收，不依赖公网域名、对象存储、公开安装脚本或在线自动更新。详见 [P0 内部签收清单](docs/p0-release-signoff.md)。
 - P1 工作台：三栏可伸缩布局和 Tab 骨架已进入开发，真实投研数据、文件视图与研究工具仍在推进。
 
 产品范围和路线图以仓库外层的 `PRD_ResearchWorkbench_v0.1.md` 与本目录的 `AGENTS.md` 为准。
