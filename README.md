@@ -6,10 +6,9 @@ Rocket 是面向二级市场基本面研究的 AI 原生桌面工作台。它把
 
 ## 当前阶段
 
-- P0 品牌与运行时迁移：Rocket 包名、应用名、配置目录、服务端变量与桌面图标。
-- P0 工程基线：Electron 33.3.1，主进程、预加载、渲染器、资源构建可通过，Windows 桌面窗口可启动。
-- P0 内部交付：质量门禁与 Windows 候选物已就绪；P0 只要求内部安装、启动和卸载验收，不依赖公网域名、对象存储、公开安装脚本或在线自动更新。详见 [P0 内部签收清单](docs/p0-release-signoff.md)。
-- P1 工作台：三栏可伸缩布局和 Tab 骨架已进入开发，真实投研数据、文件视图与研究工具仍在推进。
+- P0 非发布基线：开发环境可用，Rocket 包名、应用名、配置目录、主题和桌面图标已迁移，桌面应用可编译并从源码启动。
+- P0 不包含安装器、候选物、签名、在线更新、公开域名或分发验收。完成定义见 [P0 非发布基线](docs/p0-baseline.md)。
+- P1 工作台：三栏布局和 Tab 仍是原型，默认关闭；设置 `VITE_ROCKET_RESEARCH_LAYOUT=1` 可用于开发预览。
 
 产品范围和路线图以仓库外层的 `PRD_ResearchWorkbench_v0.1.md` 与本目录的 `AGENTS.md` 为准。
 
@@ -58,10 +57,10 @@ bun run electron:dev
 ## 验证
 
 ```bash
-bun run typecheck:electron
-bun run lint:electron
-bun run electron:build
+bun run validate:p0
 ```
+
+`validate:p0` 只检查源码基线：类型、测试、Lint、i18n 和 Electron 构建，不生成安装包，也不执行发布检查。
 
 更完整的仓库检查：
 

@@ -7,7 +7,7 @@
  * - LLM connection type mapping
  * - Available providers list
  */
-import { describe, it, expect, beforeEach } from 'bun:test';
+import { describe, it, expect, beforeAll } from 'bun:test';
 import { join } from 'node:path';
 import {
   detectProvider,
@@ -27,11 +27,15 @@ import {
   validateStoredBackendConnection,
 } from '../factory.ts';
 import type { BackendConfig } from '../types.ts';
-import type { Workspace, LlmConnection } from '../../../config/storage.ts';
+import { ensureConfigDir, type Workspace, type LlmConnection } from '../../../config/storage.ts';
 import type { SessionConfig as Session } from '../../../sessions/storage.ts';
 import { ClaudeAgent } from '../../claude-agent.ts';
 import { PiAgent } from '../../pi-agent.ts';
 import { isValidProviderAuthCombination } from '../../../config/llm-connections.ts';
+
+beforeAll(() => {
+  ensureConfigDir();
+});
 
 // Test helpers
 function createTestWorkspace(): Workspace {

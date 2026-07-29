@@ -1,6 +1,6 @@
 # Rocket — AI-Native Investment Research Workbench
 
-> **目前状态**: v0.2 · P0 完成 (基建) · P1-1 进行中 (三栏布局改造)
+> **目前状态**: v0.2 · P0 完成（非发布基线）· P1-1 原型开发中（三栏布局默认关闭）
 > **基础项目**: Forked from [Craft Agents OSS](https://github.com/craft-ai-agents/craft-agents-oss) (Apache 2.0)
 > **桌面壳**: Electron 33.3.1 · **引擎**: Pi SDK (多供应商模型) + Claude Agent SDK
 
@@ -31,7 +31,7 @@ Rocket 是一个 AI 原生的投研工作台桌面应用，专为二级市场基
 | 编辑器 | **TipTap (ProseMirror)** |
 | 布局 | **react-resizable-panels** (shadcn/ui 封装) |
 | Agent 引擎 | **Pi SDK** (多供应商: DeepSeek / Claude / GPT) |
-| 存储 | **SQLite** (本地文件) |
+| 存储 | **JSON / JSONL**（本地文件，配置与会话） |
 | 图表 | **ECharts** (计划中) |
 | 包管理 | **Bun 1.3.x** |
 
@@ -138,9 +138,11 @@ rocket/
 | 渲染器路径错误 | bun build 保留源码 `__dirname` | 增加 `RENDERER_ROOT` 自动检测 dist 路径 |
 | 预加载脚本路径错误 | 同上 | 修正为 `../../dist/` 相对路径 |
 
-### 3.3 三栏布局 (P1-1)
+### 3.3 三栏布局原型 (P1-1)
 
-已完成三栏可伸缩布局的初步改造：
+已完成三栏可伸缩布局的初步原型，但真实数据、文件视图和 Agent 对话尚未接入。
+P0 默认使用稳定的经典布局；只有在构建环境设置
+`VITE_ROCKET_RESEARCH_LAYOUT=1` 时才启用该原型。
 
 ```
 ┌──────────┬──────────────────────────────┬──────────┐
@@ -175,7 +177,7 @@ rocket/
 
 | 编号 | 任务 | 状态 | 负责人 |
 |---|---|---|---|
-| P1-1 | 三栏可伸缩布局 | ✅ 完成 | |
+| P1-1 | 三栏可伸缩布局 | 🚧 原型 | 默认关闭，待真实数据与 Agent 集成 |
 | P1-2 | 左栏导航树（自选股/行业/工具/笔记） | 📋 待开始 | |
 | P1-3 | 中栏 Tab 系统 + 文件阅览器 (MD/PDF/DOCX/XLSX) | 📋 待开始 | |
 | P1-4 | K 线图表组件 (ECharts) | 📋 待开始 | |
@@ -277,12 +279,8 @@ bun run scripts/electron-build-preload.ts
 # 仅编译渲染器 (Vite)
 bun run scripts/electron-build-renderer.ts
 
-# 启动 (必须用 env -u 清除 ELECTRON_RUN_AS_NODE)
-env -u ELECTRON_RUN_AS_NODE bun run electron:start
-
-# Windows PowerShell 启动方式
-$env:ELECTRON_RUN_AS_NODE = $null
-D:\Projects\Rocket\rocket\base\node_modules\electron\dist\electron.exe D:\Projects\Rocket\rocket\base\apps\electron
+# 构建并启动；脚本会自动清除 ELECTRON_RUN_AS_NODE
+bun run electron:start
 ```
 
 ### 5.2 `ELECTRON_RUN_AS_NODE` 环境变量
@@ -420,8 +418,8 @@ PowerShell 用 `Remove-Item <path> -Force`，Git Bash 用 `rm -f <path>`。
 - [x] Fork 改名完成 (@rocket/* 包名)
 - [x] 主进程 + 预加载 + 渲染器编译通过
 - [x] Windows 11 桌面应用正常启动
-- [x] 三栏可伸缩布局 (P1-1)
-- [x] Tab 状态管理系统
+- [x] 三栏可伸缩布局原型（P1-1，默认关闭）
+- [x] Tab 状态管理原型
 - [x] 所有 Windows 兼容性修复
 
 ### 待交付 (P1)

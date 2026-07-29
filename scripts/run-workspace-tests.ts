@@ -1,13 +1,29 @@
 import { resolve, relative } from 'node:path'
-import { existsSync } from 'node:fs'
+import { existsSync, rmSync } from 'node:fs'
 
 const ROOT = resolve(import.meta.dir, '..')
+const TEST_CONFIG_DIR = process.env.ROCKET_CONFIG_DIR || resolve(ROOT, '.cache', 'workspace-tests')
 const fromArg = process.argv.find(arg => arg.startsWith('--from='))?.slice('--from='.length)
 const normalizedFrom = fromArg?.replace(/\\/g, '/')
+const inheritedPath = process.env.PATH || process.env.Path
+
+if (!process.env.ROCKET_CONFIG_DIR && existsSync(TEST_CONFIG_DIR)) {
+  const relativeConfigDir = relative(ROOT, TEST_CONFIG_DIR).replace(/\\/g, '/')
+  if (relativeConfigDir !== '.cache/workspace-tests') {
+    throw new Error(`Refusing to reset unexpected test config directory: ${TEST_CONFIG_DIR}`)
+  }
+  rmSync(TEST_CONFIG_DIR, { recursive: true, force: true })
+}
 
 async function run(args: string[], cwd: string): Promise<void> {
+  const childEnv = {
+    ...process.env,
+    ROCKET_CONFIG_DIR: TEST_CONFIG_DIR,
+    ...(inheritedPath ? { PATH: inheritedPath, Path: inheritedPath } : {}),
+  }
   const proc = Bun.spawn([process.execPath, ...args], {
     cwd,
+    env: childEnv,
     stdin: 'inherit',
     stdout: 'inherit',
     stderr: 'inherit',

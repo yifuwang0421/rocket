@@ -698,8 +698,9 @@ function AppShellContent({
     return new Map<SessionStatusId, FilterMode>(Object.entries(entry) as [SessionStatusId, FilterMode][])
   }, [viewFiltersMap, sessionFilterKey])
 
-  // Research layout toggle — switches between classic and three-panel layout
-  const isResearchLayout = true
+  // Keep the proven classic shell as the P0 default. The P1 research layout is
+  // still a prototype and can be enabled explicitly for development previews.
+  const isResearchLayout = import.meta.env.VITE_ROCKET_RESEARCH_LAYOUT === '1'
 
   // Derive current view's label filter as a Map<string, FilterMode>
   const labelFilter = useMemo(() => {
