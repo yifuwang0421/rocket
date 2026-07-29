@@ -8,11 +8,12 @@
 import {
   PROTOCOL_VERSION,
   type MessageEnvelope,
-} from '@craft-agent/shared/protocol'
+} from '@rocket/shared/protocol'
 import {
   serializeEnvelope,
   deserializeEnvelope,
-} from '@craft-agent/server-core/transport'
+} from '@rocket/server-core/transport'
+import { WebSocket } from 'ws'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -93,16 +94,17 @@ export class CliRpcClient {
           clearTimeout(timer)
           this._clientId = envelope.clientId ?? null
           this._connected = true
-          // Switch to normal message handler
-          this.ws!.onmessage = (e) => {
-            this.onMessage(typeof e.data === 'string' ? e.data : String(e.data))
-          }
-          resolve(this._clientId!)
+          // Let the socket event loop settle before callers can issue their
+          // first RPC. Some Node/Bun WebSocket combinations can otherwise
+          // drop an immediate error response sent in the ACK turn.
+          setTimeout(() => resolve(this._clientId!), 0)
         } else if (envelope.type === 'error') {
           clearTimeout(timer)
           const err = new Error(envelope.error?.message ?? 'Connection rejected')
           ;(err as any).code = envelope.error?.code
           reject(err)
+        } else if (this._connected) {
+          this.onEnvelope(envelope)
         }
       }
 
@@ -200,7 +202,10 @@ export class CliRpcClient {
     } catch {
       return
     }
+    this.onEnvelope(envelope)
+  }
 
+  private onEnvelope(envelope: MessageEnvelope): void {
     switch (envelope.type) {
       case 'response': {
         const req = this.pending.get(envelope.id)

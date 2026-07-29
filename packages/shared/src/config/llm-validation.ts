@@ -8,7 +8,6 @@
  * credential injection, no tools, minimal system prompt.
  */
 
-import { query } from '@anthropic-ai/claude-agent-sdk';
 import { getDefaultOptions } from '../agent/options.ts';
 import { debug } from '../utils/debug.ts';
 
@@ -73,6 +72,7 @@ export async function validateAnthropicConnection(
       persistSession: false,
     };
 
+    const { query } = await import('@anthropic-ai/claude-agent-sdk');
     const q = query({ prompt: 'hi', options });
 
     // Consume the query — we just need it to succeed or fail

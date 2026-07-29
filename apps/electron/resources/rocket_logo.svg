@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" fill="none">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="256" y2="256">
+      <stop offset="0%" stop-color="#0a1628"/>
+      <stop offset="100%" stop-color="#1a3a6a"/>
+    </linearGradient>
+  </defs>
+  <!-- 圆形背景 -->
+  <rect width="256" height="256" rx="48" fill="url(#bg)"/>
+  <!-- 火箭主体 -->
+  <g transform="translate(128, 128)">
+    <!-- 箭体 -->
+    <path d="M-12,-80 C-8,-60 0,-20 0,20 C0,-20 8,-60 12,-80 Z" fill="#4a9eff"/>
+    <!-- 整流罩 -->
+    <path d="M-12,-80 C-8,-90 0,-100 0,-110 C0,-100 8,-90 12,-80 Z" fill="#60b0ff"/>
+    <!-- 舷窗 -->
+    <circle cx="0" cy="-50" r="10" fill="none" stroke="#0a1628" stroke-width="1.5"/>
+    <circle cx="0" cy="-50" r="8" fill="#7ec8ff" opacity="0.6"/>
+    <!-- 尾翼 -->
+    <path d="M-12,-20 L-35,-10 L-30,5 L-12,-5 Z" fill="#4a9eff"/>
+    <path d="M12,-20 L35,-10 L30,5 L12,-5 Z" fill="#4a9eff"/>
+    <!-- 尾喷火焰 -->
+    <path d="M-8,20 C-12,35 -4,50 0,65 C4,50 12,35 8,20 Z" fill="#ff6b35" opacity="0.8"/>
+    <path d="M-4,20 C-6,30 -2,40 0,50 C2,40 6,30 4,20 Z" fill="#ffd700" opacity="0.9"/>
+  </g>
+</svg>

@@ -1,12 +1,13 @@
 {
-  "name": "@craft-agent/cli",
+  "name": "@rocket/cli",
   "version": "0.11.2",
   "license": "Apache-2.0",
-  "description": "Terminal client for Craft Agent server",
+  "description": "Terminal client for Rocket server",
   "type": "module",
   "main": "src/index.ts",
   "bin": {
-    "craft-cli": "src/index.ts"
+    "rocket": "src/index.ts",
+    "rocket-cli": "src/index.ts"
   },
   "scripts": {
     "start": "bun run src/index.ts",
@@ -14,12 +15,14 @@
     "test": "bun test src/"
   },
   "dependencies": {
-    "@craft-agent/shared": "workspace:*",
-    "@craft-agent/server-core": "workspace:*"
+    "@rocket/shared": "workspace:*",
+    "@rocket/server-core": "workspace:*",
+    "ws": "^8.19.0"
   },
   "devDependencies": {
     "typescript": "^5.8.2",
     "@types/node": "^22.0.0",
-    "@types/bun": "latest"
+    "@types/bun": "latest",
+    "@types/ws": "^8.18.1"
   }
 }

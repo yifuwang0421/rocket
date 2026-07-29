@@ -1,8 +1,8 @@
 #!/usr/bin/env bun
 /**
- * craft-cli — Terminal client for Craft Agent server.
+ * rocket — Terminal client for Rocket server.
  *
- * Connects over WebSocket (ws:// or wss://) to a running Craft Agent server
+ * Connects over WebSocket (ws:// or wss://) to a running Rocket server
  * and provides commands for listing resources, managing sessions, sending
  * messages with real-time streaming, and validating server health.
  */
@@ -146,9 +146,9 @@ export function parseArgs(argv: string[]): CliArgs {
   }
 
   // Env var fallbacks
-  if (!url) url = process.env.CRAFT_SERVER_URL ?? ''
-  if (!token) token = process.env.CRAFT_SERVER_TOKEN ?? ''
-  if (!tlsCa) tlsCa = process.env.CRAFT_TLS_CA
+  if (!url) url = process.env.ROCKET_SERVER_URL ?? ''
+  if (!token) token = process.env.ROCKET_SERVER_TOKEN ?? ''
+  if (!tlsCa) tlsCa = process.env.ROCKET_TLS_CA
   if (!provider) provider = process.env.LLM_PROVIDER ?? 'anthropic'
   if (!model) model = process.env.LLM_MODEL ?? ''
   if (!apiKey) apiKey = process.env.LLM_API_KEY ?? ''
@@ -1376,7 +1376,7 @@ export function getValidateSteps(): ValidateStep[] {
 mkdir -p "${skillDir}" && cat > "${skillDir}/SKILL.md" << 'SKILLEOF'
 ---
 name: "CLI Validate Skill"
-description: "Validation skill created by craft-cli"
+description: "Validation skill created by Rocket CLI"
 requiredSources:
   - "${sourceSlug}"
 ---
@@ -1891,13 +1891,13 @@ export async function runValidation(
 // ---------------------------------------------------------------------------
 
 function printHelp(): void {
-  process.stdout.write(`craft-cli — Terminal client for Craft Agent server
+  process.stdout.write(`rocket — Terminal client for Rocket server
 
-Usage: craft-cli [options] <command> [args...]
+Usage: rocket [options] <command> [args...]
 
 Connection:
-  --url <ws[s]://...>    Server URL (default: $CRAFT_SERVER_URL)
-  --token <secret>       Auth token (default: $CRAFT_SERVER_TOKEN)
+  --url <ws[s]://...>    Server URL (default: $ROCKET_SERVER_URL)
+  --token <secret>       Auth token (default: $ROCKET_SERVER_TOKEN)
   --workspace <id>       Workspace ID (auto-detected if omitted)
   --timeout <ms>         Request timeout (default: 10000)
   --tls-ca <path>        Custom CA cert for self-signed TLS
@@ -1936,21 +1936,20 @@ Commands:
                          --verbose, -v       Show server stderr output
 
 Examples:
-  craft-cli run "What files are in the current directory?"
-  craft-cli run --source craft-kb "Summarize today's daily note"
-  craft-cli run --workspace-dir .github/agents --source craft-public "Read the doc"
-  craft-cli run --provider openai --model gpt-4o "Summarize this repo"
-  OPENAI_API_KEY=sk-... craft-cli run --provider openai "Hello"
-  GOOGLE_API_KEY=... craft-cli run --provider google --model gemini-2.0-flash "Hello"
-  DEEPSEEK_API_KEY=sk-... craft-cli run --provider deepseek --model deepseek-v4-flash "Hello"
-  echo "Analyze this code" | craft-cli run
-  craft-cli ping
-  craft-cli sessions
-  craft-cli send abc-123 "What files are in the current directory?"
-  echo "Summarize this" | craft-cli send abc-123
-  craft-cli --validate-server
-  craft-cli invoke system:homeDir
-  craft-cli --json workspaces | jq '.[].name'
+  rocket run "What files are in the current directory?"
+  rocket run --workspace-dir .github/agents "Summarize this repository"
+  rocket run --provider openai --model gpt-4o "Summarize this repo"
+  OPENAI_API_KEY=sk-... rocket run --provider openai "Hello"
+  GOOGLE_API_KEY=... rocket run --provider google --model gemini-2.0-flash "Hello"
+  DEEPSEEK_API_KEY=sk-... rocket run --provider deepseek --model deepseek-v4-flash "Hello"
+  echo "Analyze this code" | rocket run
+  rocket ping
+  rocket sessions
+  rocket send abc-123 "What files are in the current directory?"
+  echo "Summarize this" | rocket send abc-123
+  rocket --validate-server
+  rocket invoke system:homeDir
+  rocket --json workspaces | jq '.[].name'
 `)
 }
 
@@ -1991,7 +1990,7 @@ export async function main(argv: string[] = process.argv): Promise<void> {
 
   // All other commands need a server URL
   if (!args.url) {
-    err('No server URL. Use --url <ws://...> or set $CRAFT_SERVER_URL')
+    err('No server URL. Use --url <ws://...> or set $ROCKET_SERVER_URL')
     process.exit(1)
   }
 

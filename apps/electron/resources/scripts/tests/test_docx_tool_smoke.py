@@ -23,14 +23,16 @@ class DocxToolSmokeTests(unittest.TestCase):
 
     def test_create_extract_template_and_replace(self) -> None:
         created = self.tmpdir / "created.docx"
+        source = self.tmpdir / "report.md"
+        source.write_text("# Report\n\nHello **world**", encoding="utf-8")
         create = self.run_tool(
             "create",
-            "--text",
-            "# Report\n\nHello **world**",
-            "--title",
-            "Q1",
             "-o",
             str(created),
+            "--from-file",
+            str(source),
+            "--title",
+            "Q1",
         )
         self.assertEqual(create.returncode, 0, msg=create.stderr)
         self.assertTrue(created.exists())
@@ -66,14 +68,14 @@ class DocxToolSmokeTests(unittest.TestCase):
             "--find",
             "Balint",
             "--replace-with",
-            "Craft Agent",
+            "Rocket",
             "-o",
             str(replaced_doc),
         )
         self.assertEqual(repl.returncode, 0, msg=repl.stderr)
 
         extracted_replaced = self.run_tool("extract", str(replaced_doc))
-        self.assertIn("Craft Agent", extracted_replaced.stdout)
+        self.assertIn("Rocket", extracted_replaced.stdout)
 
     def test_template_invalid_json_fails(self) -> None:
         template_doc = self.tmpdir / "bad-template.docx"

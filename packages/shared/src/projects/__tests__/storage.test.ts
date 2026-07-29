@@ -39,8 +39,9 @@ describe('sanitizeAssetFilename', () => {
     expect(sanitizeAssetFilename('re\x00port\n\t.pdf')).toBe('report.pdf');
   });
 
-  it('strips path separators and leading dots so an upload stays in the assets dir', () => {
-    expect(sanitizeAssetFilename('..\\..\\etc\\passwd')).toBe('etcpasswd');
+  it('keeps only the leaf name across separator styles so an upload stays in the assets dir', () => {
+    expect(sanitizeAssetFilename('..\\..\\etc\\passwd')).toBe('passwd');
+    expect(sanitizeAssetFilename('../../etc/passwd')).toBe('passwd');
   });
 
   it('falls back to a generated name when the input reduces to empty', () => {

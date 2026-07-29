@@ -6,7 +6,7 @@
  */
 
 import { homedir } from 'os';
-import { resolve, join, normalize, isAbsolute } from 'path';
+import { resolve, join, normalize, isAbsolute, posix, win32 } from 'path';
 import { existsSync } from 'fs';
 
 /**
@@ -33,14 +33,26 @@ export function expandPath(inputPath: string, basePath?: string): string {
     return home;
   }
 
-  // Handle ~/ prefix
-  if (expanded.startsWith('~/')) {
-    expanded = join(home, expanded.slice(2));
+  // Handle both canonical ~/ and historical Windows ~\ prefixes. Splitting
+  // explicitly keeps persisted paths readable when moved across platforms.
+  if (/^~[\\/]/.test(expanded)) {
+    expanded = join(home, ...expanded.slice(2).split(/[\\/]+/).filter(Boolean));
   }
 
   // Handle ${HOME} and $HOME variables
   expanded = expanded.replace(/\$\{HOME\}/g, home);
-  expanded = expanded.replace(/\$HOME(?=\/|$)/g, home);
+  expanded = expanded.replace(/\$HOME(?=[\\/]|$)/g, home);
+
+  // A session may target a remote machine whose path syntax differs from the
+  // host running Rocket. Host-native `normalize()` would turn `/tmp/foo` into
+  // `\tmp\foo` on Windows (and `resolve()` would prefix a Windows drive path
+  // on POSIX), corrupting an already-absolute remote path.
+  if (process.platform === 'win32' && expanded.startsWith('/') && !expanded.startsWith('//')) {
+    return posix.normalize(expanded);
+  }
+  if (process.platform !== 'win32' && win32.isAbsolute(expanded)) {
+    return win32.normalize(expanded);
+  }
 
   // If still not absolute, resolve from base path
   if (!isAbsolute(expanded)) {
@@ -65,6 +77,14 @@ export function expandPath(inputPath: string, basePath?: string): string {
  */
 export function toPortablePath(absolutePath: string): string {
   if (!absolutePath) return absolutePath;
+
+  // Keep the conversion idempotent. Session persistence passes paths through
+  // more than one serialization layer, and older Windows data may use ~\.
+  if (absolutePath === '~') return '~';
+  if (/^~[\\/]/.test(absolutePath)) {
+    const relativePart = absolutePath.slice(2).replace(/\\/g, '/');
+    return relativePart ? `~/${relativePart}` : '~';
+  }
 
   const home = homedir();
   const normalized = normalize(absolutePath);

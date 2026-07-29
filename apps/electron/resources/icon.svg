@@ -1,12 +1,18 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<svg width="24px" height="24px" viewBox="0 0 24 24" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
-    <title>favicon</title>
-    <defs>
-        <path d="M0,0 L24,0 L24,24 L0,24 L0,0 Z" id="path-1"></path>
-    </defs>
-    <g id="favicon" stroke="none" fill="none" xlink:href="#path-1" fill-rule="evenodd" stroke-width="1">
-        <g id="Group" transform="translate(3.4502, 3)" fill="#9570BE">
-            <path d="M3.17890888,3.6 L3.17890888,0 L16,0 L16,3.6 L3.17890888,3.6 Z M9.642,7.2 L9.64218223,10.8 L0,10.8 L0,3.6 L16,3.6 L16,7.2 L9.642,7.2 Z M3.17890888,18 L3.178,14.4 L0,14.4 L0,10.8 L16,10.8 L16,18 L3.17890888,18 Z" id="Combined-Shape" fill-rule="nonzero"></path>
-        </g>
-    </g>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" fill="none">
+  <defs>
+    <linearGradient id="rocket-bg" x1="24" y1="16" x2="232" y2="240" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0A1628"/>
+      <stop offset="1" stop-color="#1A3A6A"/>
+    </linearGradient>
+    <linearGradient id="rocket-body" x1="93" y1="30" x2="164" y2="196" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#7EC8FF"/>
+      <stop offset="1" stop-color="#3286E6"/>
+    </linearGradient>
+  </defs>
+  <rect width="256" height="256" rx="52" fill="url(#rocket-bg)"/>
+  <path d="M128 26C99 50 84 84 84 125v31l-24 23v27l43-13h50l43 13v-27l-24-23v-31c0-41-15-75-44-99Z" fill="url(#rocket-body)"/>
+  <circle cx="128" cy="102" r="19" fill="#0A1628"/>
+  <circle cx="128" cy="102" r="14" fill="#8FD2FF"/>
+  <path d="M108 193c2 20 9 34 20 43 11-9 18-23 20-43h-40Z" fill="#FF7A45"/>
+  <path d="M118 193c1 13 4 23 10 30 6-7 9-17 10-30h-20Z" fill="#FFD45C"/>
 </svg>

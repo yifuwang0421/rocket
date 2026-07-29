@@ -1,10 +1,10 @@
 /**
- * @craft-agent/ui - Shared Tailwind CSS v4 theme
+ * @rocket/ui - Shared Tailwind CSS v4 theme
  *
- * This file provides the base theme configuration for all Craft Agent UIs.
+ * This file provides the base theme configuration for all Rocket UIs.
  * Import this in your app's main CSS file:
  *
- *   @import "@craft-agent/ui/styles";
+ *   @import "@rocket/ui/styles";
  *
  * The consuming app can then add its own source directive:
  *
@@ -13,7 +13,7 @@
  * 6-Color System:
  * - background: Light/dark surface
  * - foreground: Text and icons
- * - accent: Brand purple (highlights, Auto mode)
+ * - accent: Rocket deep blue (highlights, Auto mode)
  * - info: Amber (warnings, Ask mode)
  * - success: Green (connected, checkmarks)
  * - destructive: Red (errors, failed)
@@ -32,11 +32,11 @@
 
 :root {
   /* === 6 BASE COLORS === */
-  --background: oklch(0.98 0.003 265);
-  --foreground: oklch(0.185 0.01 270);
-  --foreground-rgb: 38, 36, 42;             /* RGB for shadow borders */
-  --accent: oklch(0.58 0.22 293);           /* purple - brand, Auto mode */
-  --accent-rgb: 104, 78, 133;               /* darkened RGB for shadow-tinted (70% of accent) */
+  --background: #f7f9fc;
+  --foreground: #132238;
+  --foreground-rgb: 19, 34, 56;             /* RGB for shadow borders */
+  --accent: #1a3a6a;                         /* Rocket deep blue - brand, Auto mode */
+  --accent-rgb: 26, 58, 106;                 /* RGB for shadow-tinted */
   --info: oklch(0.75 0.16 70);              /* amber - warnings, Ask mode */
   --success: oklch(0.55 0.17 145);          /* green - connected, checkmarks */
   --destructive: oklch(0.58 0.24 28);       /* red - errors, failed */
@@ -150,11 +150,11 @@
 
 .dark {
   /* === 6 BASE COLORS === */
-  --background: oklch(0.2 0.005 270);
-  --foreground: oklch(0.92 0.005 270);
-  --foreground-rgb: 227, 226, 229;           /* RGB for shadow borders */
-  --accent: oklch(0.65 0.20 293);            /* brighter purple in dark */
-  --accent-rgb: 118, 92, 147;                /* darkened RGB for shadow-tinted (70% of accent) */
+  --background: #0a1628;
+  --foreground: #edf4ff;
+  --foreground-rgb: 237, 244, 255;           /* RGB for shadow borders */
+  --accent: #5b8fd1;                          /* accessible Rocket blue in dark */
+  --accent-rgb: 91, 143, 209;                 /* RGB for shadow-tinted */
   --info: oklch(0.70 0.16 70);               /* amber */
   --success: oklch(0.60 0.17 145);           /* green */
   --destructive: oklch(0.70 0.19 22);        /* brighter red in dark */
@@ -546,4 +546,8 @@ html[data-font="inter"] {
   animation: shimmer 1.5s ease-in-out infinite;
   pointer-events: none;
   border-radius: inherit;
+}
+
+[data-ca-block-annotated="true"] {
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--info) 22%, transparent);
 }

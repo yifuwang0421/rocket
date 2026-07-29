@@ -1,10 +1,11 @@
 import { describe, it, expect, afterEach } from 'bun:test'
 import { CliRpcClient } from './client.ts'
 import {
+  WsRpcServer,
   serializeEnvelope,
   deserializeEnvelope,
-} from '@craft-agent/server-core/transport'
-import type { MessageEnvelope } from '@craft-agent/shared/protocol'
+} from '@rocket/server-core/transport'
+import type { MessageEnvelope } from '@rocket/shared/protocol'
 
 // ---------------------------------------------------------------------------
 // Mock WS server helpers
@@ -97,66 +98,6 @@ function createMockServer(opts?: {
   }
 }
 
-function createErrorServer(): MockServer {
-  let lastMsg: MessageEnvelope | null = null
-  const clients = new Set<any>()
-
-  const server = Bun.serve({
-    port: 0,
-    fetch(req, server) {
-      if (server.upgrade(req)) return undefined
-      return new Response('Not found', { status: 404 })
-    },
-    websocket: {
-      message(ws, message) {
-        const raw = typeof message === 'string' ? message : new TextDecoder().decode(message)
-        const envelope = deserializeEnvelope(raw)
-        lastMsg = envelope
-
-        if (envelope.type === 'handshake') {
-          const ack: MessageEnvelope = {
-            id: crypto.randomUUID(),
-            type: 'handshake_ack',
-            clientId: 'test-client-err',
-            protocolVersion: '1.0',
-          }
-          ws.send(serializeEnvelope(ack))
-          return
-        }
-
-        if (envelope.type === 'request') {
-          // Respond with error
-          const response: MessageEnvelope = {
-            id: envelope.id,
-            type: 'response',
-            channel: envelope.channel,
-            error: { code: 'HANDLER_ERROR', message: 'test error' },
-          }
-          ws.send(serializeEnvelope(response))
-        }
-      },
-      open(ws) {
-        clients.add(ws)
-      },
-      close(ws) {
-        clients.delete(ws)
-      },
-    },
-  })
-
-  const port = server.port!
-  return {
-    url: `ws://127.0.0.1:${port}`,
-    port,
-    close: () => server.stop(true),
-    lastMessage: () => lastMsg,
-    sendToAll: (envelope: MessageEnvelope) => {
-      const data = serializeEnvelope(envelope)
-      for (const ws of clients) ws.send(data)
-    },
-  }
-}
-
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
@@ -223,11 +164,25 @@ describe('CliRpcClient', () => {
   })
 
   it('invoke rejects on server error', async () => {
-    server = createErrorServer()
-    const client = new CliRpcClient(server.url)
-    await client.connect()
-    await expect(client.invoke('system:versions')).rejects.toThrow('test error')
-    client.destroy()
+    const rpcServer = new WsRpcServer({
+      host: '127.0.0.1',
+      port: 0,
+      requireAuth: false,
+      serverId: 'cli-error-test',
+    })
+    rpcServer.handle('system:versions', async () => {
+      throw new Error('test error')
+    })
+    await rpcServer.listen()
+
+    const client = new CliRpcClient(`ws://127.0.0.1:${rpcServer.port}`)
+    try {
+      await client.connect()
+      await expect(client.invoke('system:versions')).rejects.toThrow('test error')
+    } finally {
+      client.destroy()
+      await rpcServer.close()
+    }
   })
 
   it('invoke rejects on timeout', async () => {

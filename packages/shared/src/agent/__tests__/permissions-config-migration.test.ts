@@ -4,18 +4,18 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 
 const originalCwd = process.cwd();
-const originalConfigDir = process.env.CRAFT_CONFIG_DIR;
+const originalConfigDir = process.env.ROCKET_CONFIG_DIR;
 
 afterEach(() => {
   process.chdir(originalCwd);
-  if (originalConfigDir === undefined) delete process.env.CRAFT_CONFIG_DIR;
-  else process.env.CRAFT_CONFIG_DIR = originalConfigDir;
+  if (originalConfigDir === undefined) delete process.env.ROCKET_CONFIG_DIR;
+  else process.env.ROCKET_CONFIG_DIR = originalConfigDir;
 });
 
 describe('ensureDefaultPermissions migration', () => {
   it('merges new bundled defaults into existing installed file and preserves customizations', async () => {
-    const tempRoot = mkdtempSync(join(tmpdir(), 'permissions-bundle-'));
-    const tempConfig = mkdtempSync(join(tmpdir(), 'permissions-config-'));
+    const tempRoot = mkdtempSync(join(tmpdir(), 'rocket-permissions-bundle-'));
+    const tempConfig = mkdtempSync(join(tmpdir(), 'rocket-permissions-config-'));
 
     const bundledDir = join(tempRoot, 'resources', 'permissions');
     mkdirSync(bundledDir, { recursive: true });
@@ -55,7 +55,7 @@ describe('ensureDefaultPermissions migration', () => {
       }, null, 2)
     );
 
-    process.env.CRAFT_CONFIG_DIR = tempConfig;
+    process.env.ROCKET_CONFIG_DIR = tempConfig;
     process.chdir(tempRoot);
 
     const mod = await import(`../permissions-config.ts?case=${Date.now()}`);
@@ -81,6 +81,8 @@ describe('ensureDefaultPermissions migration', () => {
     expect(blockedCommandHints.some(h => h.command === 'printf')).toBe(true);
     expect(blockedCommandHints.some(h => h.command === 'sed')).toBe(true);
 
+    // Windows cannot remove the process's current working directory.
+    process.chdir(originalCwd);
     rmSync(tempRoot, { recursive: true, force: true });
     rmSync(tempConfig, { recursive: true, force: true });
   });

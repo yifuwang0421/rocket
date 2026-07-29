@@ -1,3 +1,5 @@
+import { isRocketDeepLinkScheme } from '../branding'
+
 /**
  * Classification of external URLs for `shell.openExternal`-style handlers.
  *
@@ -30,8 +32,6 @@ const DANGEROUS_SCHEMES: ReadonlyMap<string, string> = new Map([
   ],
 ])
 
-const INTERNAL_DEEPLINK_SCHEME = 'craftagents:'
-
 export function classifyExternalUrl(rawUrl: string): UrlClassification {
   if (typeof rawUrl !== 'string' || rawUrl.trim() === '') {
     return { kind: 'dangerous', reason: 'URL is empty or whitespace-only.' }
@@ -51,7 +51,7 @@ export function classifyExternalUrl(rawUrl: string): UrlClassification {
     return { kind: 'dangerous', scheme: protocol, reason: blockedReason }
   }
 
-  if (protocol === INTERNAL_DEEPLINK_SCHEME) {
+  if (isRocketDeepLinkScheme(protocol)) {
     return { kind: 'internal-deeplink' }
   }
 

@@ -10,7 +10,7 @@ import { z } from 'zod';
 import { getSystemPrompt } from '../prompts/system.ts';
 import { BaseAgent, type MiniAgentConfig, MINI_AGENT_TOOLS, MINI_AGENT_MCP_KEYS } from './base-agent.ts';
 import type { BackendConfig, PostInitResult, PermissionRequestType, SdkMcpServerConfig } from './backend/types.ts';
-// Plan types are used by UI components; not needed in craft-agent.ts since Safe Mode is user-controlled
+// Plan types are used by UI components; not needed in rocket.ts since Safe Mode is user-controlled
 import { parseError, type AgentError } from './errors.ts';
 import { mapClaudeSdkAssistantError, type ClaudeSdkApiError } from './claude-sdk-error-mapper.ts';
 import { runErrorDiagnostics } from './diagnostics.ts';
@@ -110,10 +110,10 @@ export {
   PERMISSION_MODE_ORDER,
   PERMISSION_MODE_CONFIG,
 } from './mode-manager.ts';
-// Documentation is served via local files at ~/.craft-agent/docs/
+// Documentation is served via local files at ~/.rocket/docs/
 
 // Import and re-export AgentEvent from core (single source of truth)
-import type { AgentEvent } from '@craft-agent/core/types';
+import type { AgentEvent } from '@rocket/core/types';
 export type { AgentEvent };
 
 // Stateless tool matching — pure functions for SDK message → AgentEvent conversion
@@ -511,8 +511,8 @@ export class ClaudeAgent extends BaseAgent {
    * WS2 keep-alive: when true, use one long-lived streaming-input `query()` per
    * session so background sub-agents survive across turns (instead of a fresh
    * per-turn subprocess that tears them down at turn end). Resolved once from
-   * `CRAFT_KEEP_BG_AGENTS_ALIVE` via the shared resolver. Default is ON (opt-out);
-   * set `CRAFT_KEEP_BG_AGENTS_ALIVE=0` to force the per-turn kill-switch path.
+   * `ROCKET_KEEP_BG_AGENTS_ALIVE` via the shared resolver. Default is ON (opt-out);
+   * set `ROCKET_KEEP_BG_AGENTS_ALIVE=0` to force the per-turn kill-switch path.
    */
   private readonly keepBackgroundTasksAlive: boolean = resolveKeepBackgroundTasksAlive();
 
@@ -1092,11 +1092,11 @@ export class ClaudeAgent extends BaseAgent {
       const fullMcpServers: Options['mcpServers'] = {
         // Session-scoped tools (SubmitPlan, source_test, update_user_preferences, transform_data, etc.)
         session: getSessionScopedTools(sessionId, this.workspaceRootPath),
-        // Craft Agents documentation - always available for searching setup guides
+        // Rocket documentation - always available for searching setup guides
         // This is a public Mintlify MCP server, no auth needed
-        'craft-agents-docs': {
+        'rockets-docs': {
           type: 'http',
-          url: 'https://agents.craft.do/docs/mcp',
+          url: 'https://agents.rocket.app/docs/mcp',
         },
         // Per-source proxy servers from centralized MCP pool (MCP + API sources)
         // Each source gets its own SDK server keyed by slug (e.g., 'linear', 'github', 'gmail')
@@ -1159,7 +1159,7 @@ export class ClaudeAgent extends BaseAgent {
       // without an explicit opt-in. The betas header only works for API key users;
       // for OAuth the [1m] model suffix is the way. Use the suffix unconditionally
       // since it works for both auth paths. See: anthropics/claude-agent-sdk-typescript#238
-      // Gated by enable1MContext in global config (~/.craft-agent/config.json).
+      // Gated by enable1MContext in global config (~/.rocket/config.json).
       // The interceptor also reads this to strip the SDK-injected beta header.
       const use1M = this.config.enable1MContext !== false;
       const effectiveModel = use1M && getModelContextWindow(model) === 1_000_000
@@ -2234,7 +2234,7 @@ This is a branched conversation. All prior messages in this conversation are par
               message:
                 'The Claude Agent SDK binary expected on disk is not present. ' +
                 'This usually means the app bundle is incomplete (interrupted download, partial update, ' +
-                'or a security tool removed it). Reinstalling Craft Agents typically fixes this.',
+                'or a security tool removed it). Reinstalling Rocket typically fixes this.',
               details: [
                 probedBinary ? `Expected binary: ${probedBinary}` : 'Binary path: unknown',
                 probedCwd ? `Subprocess cwd: ${probedCwd} (${cwdExists ? 'exists' : 'missing'})` : '',

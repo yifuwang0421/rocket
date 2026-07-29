@@ -1,5 +1,5 @@
 import { useActionLabel } from '@/actions'
-import { Tooltip, TooltipTrigger, TooltipContent } from '@craft-agent/ui'
+import { Tooltip, TooltipTrigger, TooltipContent } from '@rocket/ui'
 import type { ActionId } from '@/actions/definitions'
 
 interface ActionTooltipProps {

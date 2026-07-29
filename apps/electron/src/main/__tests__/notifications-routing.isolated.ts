@@ -36,6 +36,17 @@ mock.module('electron', () => {
   }
 })
 
+// Keep this routing unit test hermetic: importing the production logger would
+// otherwise make electron-log create a file under the real Electron userData
+// directory before the mocked notification service is exercised.
+mock.module('../logger', () => ({
+  mainLog: {
+    info: () => {},
+    warn: () => {},
+    error: () => {},
+  },
+}))
+
 describe('notification click routing', () => {
   beforeEach(() => {
     clickHandler = null

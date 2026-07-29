@@ -1,0 +1,22 @@
+{
+  "extends": "../tsconfig.base.json",
+  "compilerOptions": {
+    "allowImportingTsExtensions": true,
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "noEmit": true,
+    "skipLibCheck": true,
+    "target": "ES2022",
+    "types": ["bun-types"]
+  },
+  "include": [
+    "build.ts",
+    "build/common.ts",
+    "install-app-security.test.ts",
+    "release-check.test.ts",
+    "release-check.ts",
+    "run-workspace-tests.ts",
+    "upload.test.ts",
+    "upload.ts"
+  ]
+}

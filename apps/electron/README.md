@@ -1,6 +1,6 @@
-# Craft Agents Electron App
+# Rocket Electron App
 
-The primary desktop interface for Craft Agents, built with Electron + React. Provides a multi-session inbox with chat interface for interacting with Claude via Craft workspaces.
+The primary Rocket desktop interface, built with Electron and React. It combines multi-session Agent conversations with the investment-research workspace.
 
 ## Quick Start
 

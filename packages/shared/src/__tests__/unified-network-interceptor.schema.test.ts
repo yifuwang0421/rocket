@@ -1,20 +1,30 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'bun:test';
-import { writeFileSync, unlinkSync, mkdirSync } from 'node:fs';
+import { writeFileSync, unlinkSync, mkdirSync, mkdtempSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
-import { homedir } from 'node:os';
+import { tmpdir } from 'node:os';
 
 let injectMetadataIntoToolSchema: typeof import('../unified-network-interceptor.ts').injectMetadataIntoToolSchema;
 let sanitizeEmptyTextCacheControl: typeof import('../unified-network-interceptor.ts').sanitizeEmptyTextCacheControl;
 let upgradePromptCacheTtl: typeof import('../unified-network-interceptor.ts').upgradePromptCacheTtl;
 let _resetConfigCacheForTesting: typeof import('../interceptor-common.ts')._resetConfigCacheForTesting;
+const originalConfigDir = process.env.ROCKET_CONFIG_DIR;
+let testConfigDir = '';
+
+beforeAll(async () => {
+  testConfigDir = mkdtempSync(join(tmpdir(), 'rocket-interceptor-schema-'));
+  process.env.ROCKET_CONFIG_DIR = testConfigDir;
+  process.env.ROCKET_INTERCEPTOR_DISABLE_AUTO_INSTALL = '1';
+  ({ injectMetadataIntoToolSchema, sanitizeEmptyTextCacheControl, upgradePromptCacheTtl } = await import('../unified-network-interceptor.ts'));
+  ({ _resetConfigCacheForTesting } = await import('../interceptor-common.ts'));
+});
+
+afterAll(() => {
+  rmSync(testConfigDir, { recursive: true, force: true });
+  if (originalConfigDir === undefined) delete process.env.ROCKET_CONFIG_DIR;
+  else process.env.ROCKET_CONFIG_DIR = originalConfigDir;
+});
 
 describe('unified-network-interceptor schema metadata injection', () => {
-  beforeAll(async () => {
-    process.env.CRAFT_INTERCEPTOR_DISABLE_AUTO_INSTALL = '1';
-    ({ injectMetadataIntoToolSchema, sanitizeEmptyTextCacheControl, upgradePromptCacheTtl } = await import('../unified-network-interceptor.ts'));
-    ({ _resetConfigCacheForTesting } = await import('../interceptor-common.ts'));
-  });
-
   it('injects metadata fields into empty/zero-arg schemas', () => {
     const schema = { type: 'object' };
     const result = injectMetadataIntoToolSchema(schema);
@@ -123,10 +133,11 @@ describe('sanitizeEmptyTextCacheControl', () => {
 });
 
 describe('upgradePromptCacheTtl', () => {
-  const configFile = join(homedir(), '.craft-agent', 'config.json');
+  let configFile = '';
   let originalConfig: string | null = null;
 
   beforeEach(() => {
+    configFile = join(testConfigDir, 'config.json');
     // Save original config if it exists
     try {
       originalConfig = require('node:fs').readFileSync(configFile, 'utf-8');
@@ -146,7 +157,7 @@ describe('upgradePromptCacheTtl', () => {
   });
 
   function enableExtendedCache() {
-    const dir = join(homedir(), '.craft-agent');
+    const dir = testConfigDir;
     mkdirSync(dir, { recursive: true });
     const existing = originalConfig ? JSON.parse(originalConfig) : {};
     writeFileSync(configFile, JSON.stringify({ ...existing, extendedPromptCache: true }));
@@ -154,7 +165,7 @@ describe('upgradePromptCacheTtl', () => {
   }
 
   function disableExtendedCache() {
-    const dir = join(homedir(), '.craft-agent');
+    const dir = testConfigDir;
     mkdirSync(dir, { recursive: true });
     const existing = originalConfig ? JSON.parse(originalConfig) : {};
     writeFileSync(configFile, JSON.stringify({ ...existing, extendedPromptCache: false }));

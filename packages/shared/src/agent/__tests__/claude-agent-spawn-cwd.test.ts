@@ -23,7 +23,7 @@ import {
 describe('isExistingDirectory', () => {
   let tempDir: string;
   beforeEach(() => {
-    tempDir = mkdtempSync(join(tmpdir(), 'craft-spawn-helpers-'));
+    tempDir = mkdtempSync(join(tmpdir(), 'rocket-spawn-helpers-'));
   });
   afterEach(() => {
     rmSync(tempDir, { recursive: true, force: true });
@@ -45,7 +45,17 @@ describe('isExistingDirectory', () => {
 
   it('returns false for a broken symlink (target missing)', () => {
     const linkPath = join(tempDir, 'broken-link');
-    symlinkSync(join(tempDir, 'no-such-target'), linkPath);
+    const missingTarget = join(tempDir, 'no-such-target');
+    if (process.platform === 'win32') {
+      // Directory junctions do not require Windows Developer Mode or
+      // administrator privileges. Create one, then remove its target to
+      // exercise the same broken-link contract as a POSIX symlink.
+      mkdirSync(missingTarget);
+      symlinkSync(missingTarget, linkPath, 'junction');
+      rmSync(missingTarget, { recursive: true, force: true });
+    } else {
+      symlinkSync(missingTarget, linkPath);
+    }
     // lstatSync returns SymbolicLink stats, isDirectory() is false → "missing"
     expect(isExistingDirectory(linkPath)).toBe(false);
   });
@@ -69,7 +79,7 @@ describe('resolveSpawnCwd (simulated)', () => {
   let sdkCwd: string;
 
   beforeEach(() => {
-    tempDir = mkdtempSync(join(tmpdir(), 'craft-resolve-cwd-'));
+    tempDir = mkdtempSync(join(tmpdir(), 'rocket-resolve-cwd-'));
     workspaceRoot = join(tempDir, 'ws');
     parentCwd = join(tempDir, 'parent');
     sessionPath = join(tempDir, 'session');
@@ -190,9 +200,9 @@ describe('extractSdkReportedBinaryPath', () => {
 
   it('captures macOS .app bundle paths without truncating at the first dot', () => {
     const msg =
-      'Claude Code native binary not found at /Applications/Craft Agents.app/Contents/Resources/app/node_modules/@anthropic-ai/claude-agent-sdk-binary/claude';
+      'Claude Code native binary not found at /Applications/Rocket.app/Contents/Resources/app/node_modules/@anthropic-ai/claude-agent-sdk-binary/claude';
     expect(extractSdkReportedBinaryPath(msg)).toBe(
-      '/Applications/Craft Agents.app/Contents/Resources/app/node_modules/@anthropic-ai/claude-agent-sdk-binary/claude',
+      '/Applications/Rocket.app/Contents/Resources/app/node_modules/@anthropic-ai/claude-agent-sdk-binary/claude',
     );
   });
 

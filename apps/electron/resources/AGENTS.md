@@ -1,6 +1,6 @@
 # Bundled Resources
 
-This folder contains assets that are bundled with the Electron app and synced to the user's `~/.craft-agent/` directory on every launch.
+This folder contains assets that are bundled with the Electron app and synced to the user's `~/.rocket/` directory on every launch.
 
 ## How It Works
 
@@ -13,12 +13,12 @@ This folder contains assets that are bundled with the Electron app and synced to
 
 | Folder/File | Synced To | Sync Behavior |
 |-------------|-----------|---------------|
-| `docs/` | `~/.craft-agent/docs/` | Always overwrite on launch |
-| `themes/` | `~/.craft-agent/themes/` | Always overwrite on launch |
-| `permissions/` | `~/.craft-agent/permissions/` | Always overwrite on launch |
-| `tool-icons/` | `~/.craft-agent/tool-icons/` | Always overwrite on launch |
-| `release-notes/` | `~/.craft-agent/release-notes/` | Always overwrite on launch |
-| `config-defaults.json` | `~/.craft-agent/config-defaults.json` | Always overwrite on launch |
+| `docs/` | `~/.rocket/docs/` | Always overwrite on launch |
+| `themes/` | `~/.rocket/themes/` | Always overwrite on launch |
+| `permissions/` | `~/.rocket/permissions/` | Always overwrite on launch |
+| `tool-icons/` | `~/.rocket/tool-icons/` | Always overwrite on launch |
+| `release-notes/` | `~/.rocket/release-notes/` | Always overwrite on launch |
+| `config-defaults.json` | `~/.rocket/config-defaults.json` | Always overwrite on launch |
 
 ## Why Sync on Every Launch?
 
@@ -35,7 +35,7 @@ These files are used by electron-builder or the app directly, not synced to user
 | `icon.*` | App icons (icns, ico, png, svg) |
 | `Assets.car` | macOS compiled asset catalog |
 | `dmg-background.*` | DMG installer background |
-| `craft-logos/` | Branding assets |
+| `rocket_logo.svg` | Secondary Rocket branding asset |
 | `source.png` | Default source icon |
 | `generate-icons.sh` | Icon generation script |
 | `bridge-mcp-server/` | Bundled MCP server for Codex/Copilot API source bridge |

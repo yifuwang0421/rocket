@@ -326,7 +326,19 @@ function parseCommand(command: string): ParseResult {
   try {
     const result = spawnSync(
       powershellPath,
-      ['-NoProfile', '-NonInteractive', '-File', scriptPath, '-Command', command],
+      [
+        '-NoProfile',
+        '-NonInteractive',
+        // The parser is a bundled Rocket resource. Scope the override to this
+        // child process so default Windows execution policies do not silently
+        // disable PowerShell command safety validation.
+        '-ExecutionPolicy',
+        'Bypass',
+        '-File',
+        scriptPath,
+        '-Command',
+        command,
+      ],
       {
         stdio: ['ignore', 'pipe', 'pipe'],
         timeout: 10000,

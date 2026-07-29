@@ -27,7 +27,7 @@ function guidePath(slug: string): string {
 }
 
 function browserDocPath(): string {
-  return resolve(join(homedir(), '.craft-agent', 'docs', 'browser-tools.md'));
+  return resolve(join(homedir(), '.rocket', 'docs', 'browser-tools.md'));
 }
 
 describe('PrerequisiteManager', () => {
@@ -83,9 +83,9 @@ describe('PrerequisiteManager', () => {
       expect(result.allowed).toBe(true);
     });
 
-    it('exempts craft-agents-docs MCP tools', () => {
-      mockExistsPaths.add(guidePath('craft-agents-docs'));
-      const result = manager.checkPrerequisites('mcp__craft-agents-docs__search');
+    it('exempts rockets-docs MCP tools', () => {
+      mockExistsPaths.add(guidePath('rockets-docs'));
+      const result = manager.checkPrerequisites('mcp__rockets-docs__search');
       expect(result.allowed).toBe(true);
     });
 
@@ -94,11 +94,11 @@ describe('PrerequisiteManager', () => {
       expect(result.allowed).toBe(true);
     });
 
-    it('matches native browser tools and blocks until browser docs are read', () => {
+    it('matches the canonical browser tool and blocks until browser docs are read', () => {
       const docsPath = browserDocPath();
       mockExistsPaths.add(docsPath);
 
-      const result = manager.checkPrerequisites('browser_snapshot');
+      const result = manager.checkPrerequisites('browser_tool');
       expect(result.allowed).toBe(false);
       expect(result.blockReason).toContain(docsPath);
     });
@@ -298,8 +298,8 @@ describe('PrerequisiteManager', () => {
       const docsPath = browserDocPath();
       mockExistsPaths.add(docsPath);
 
-      expect(manager.checkPrerequisites('browser_open').allowed).toBe(false);
-      expect(manager.checkPrerequisites('browser_open').allowed).toBe(false);
+      expect(manager.checkPrerequisites('browser_tool').allowed).toBe(false);
+      expect(manager.checkPrerequisites('browser_tool').allowed).toBe(false);
 
       manager.trackReadTool({ file_path: docsPath });
       expect(manager.checkPrerequisites('browser_open').allowed).toBe(true);

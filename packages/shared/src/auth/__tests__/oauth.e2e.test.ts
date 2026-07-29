@@ -4,42 +4,13 @@
  * These tests verify that OAuth metadata can be discovered from popular MCP servers.
  * They only check that metadata is discoverable - they don't perform full OAuth flows.
  *
- * Tests are skipped if servers are unreachable (network tolerance for CI).
+ * Unreachable servers are tolerated: discovery returns null within its bounded
+ * request timeouts, while URL parsing remains deterministic.
  */
 import { describe, it, expect } from 'bun:test';
 import { discoverOAuthMetadata, getMcpBaseUrl } from '../oauth';
 
-// Helper to check if a URL is reachable
-async function isReachable(url: string, timeoutMs = 5000): Promise<boolean> {
-  try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-    const response = await fetch(url, {
-      method: 'HEAD',
-      signal: controller.signal,
-    });
-    clearTimeout(timeoutId);
-    return response.status < 500;
-  } catch {
-    return false;
-  }
-}
-
-// Helper to conditionally skip tests based on server reachability
-function describeIfReachable(name: string, mcpUrl: string, fn: () => void) {
-  describe(name, () => {
-    // Check reachability once - if unreachable, all tests in this describe will run but assertions will be skipped
-    let reachable = true;
-    it('should be reachable', async () => {
-      const origin = getMcpBaseUrl(mcpUrl);
-      reachable = await isReachable(origin);
-      if (!reachable) {
-        console.log(`Skipping ${name}: server unreachable`);
-      }
-    });
-    fn();
-  });
-}
+const E2E_TIMEOUT_MS = 20_000;
 
 describe('E2E: OAuth Metadata Discovery', () => {
   describe('GitHub MCP (api.githubcopilot.com)', () => {
@@ -63,7 +34,7 @@ describe('E2E: OAuth Metadata Discovery', () => {
       expect(metadata.authorization_endpoint).toBeTruthy();
       expect(metadata.token_endpoint).toBeTruthy();
       console.log('GitHub MCP OAuth metadata:', metadata);
-    });
+    }, E2E_TIMEOUT_MS);
   });
 
   describe('Linear MCP (mcp.linear.app)', () => {
@@ -86,7 +57,7 @@ describe('E2E: OAuth Metadata Discovery', () => {
       expect(metadata.authorization_endpoint).toBeTruthy();
       expect(metadata.token_endpoint).toBeTruthy();
       console.log('Linear MCP OAuth metadata:', metadata);
-    });
+    }, E2E_TIMEOUT_MS);
   });
 
   describe('Ahrefs MCP (api.ahrefs.com/mcp/mcp)', () => {
@@ -110,7 +81,7 @@ describe('E2E: OAuth Metadata Discovery', () => {
       expect(metadata.authorization_endpoint).toBeTruthy();
       expect(metadata.token_endpoint).toBeTruthy();
       console.log('Ahrefs MCP OAuth metadata:', metadata);
-    });
+    }, E2E_TIMEOUT_MS);
   });
 
   describe('Multiple path segments', () => {

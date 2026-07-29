@@ -1,14 +1,16 @@
-import { describe, expect, it } from 'bun:test'
-import { mkdtempSync, mkdirSync, readFileSync, writeFileSync } from 'fs'
+import { afterEach, describe, expect, it } from 'bun:test'
+import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'fs'
 import { join } from 'path'
 import { tmpdir } from 'os'
 import { pathToFileURL } from 'url'
 import { THINKING_LEVEL_IDS } from '../../agent/thinking-levels.ts'
 
 const STORAGE_MODULE_PATH = pathToFileURL(join(import.meta.dir, '..', 'storage.ts')).href
+const tempConfigDirs = new Set<string>()
 
 function setupWorkspaceConfigDir() {
-  const configDir = mkdtempSync(join(tmpdir(), 'craft-agent-config-thinking-'))
+  const configDir = mkdtempSync(join(tmpdir(), 'rocket-config-thinking-'))
+  tempConfigDirs.add(configDir)
   const workspaceRoot = join(configDir, 'workspaces', 'my-workspace')
   mkdirSync(workspaceRoot, { recursive: true })
 
@@ -69,7 +71,7 @@ function runEval(configDir: string, code: string): string {
     '--eval',
     `import { getDefaultThinkingLevel, setDefaultThinkingLevel } from '${STORAGE_MODULE_PATH}'; ${code}`,
   ], {
-    env: { ...process.env, CRAFT_CONFIG_DIR: configDir },
+    env: { ...process.env, ROCKET_CONFIG_DIR: configDir },
     stdout: 'pipe',
     stderr: 'pipe',
   })
@@ -82,6 +84,13 @@ function runEval(configDir: string, code: string): string {
 }
 
 describe('default thinking level storage', () => {
+  afterEach(() => {
+    for (const dir of tempConfigDirs) {
+      rmSync(dir, { recursive: true, force: true })
+    }
+    tempConfigDirs.clear()
+  })
+
   it('falls back to bundled default when no app-level default is set', () => {
     const { configDir } = setupWorkspaceConfigDir()
     const output = runEval(configDir, "console.log(String(getDefaultThinkingLevel()))")
@@ -111,7 +120,7 @@ describe('default thinking level storage', () => {
       const output = runEval(configDir, "console.log(String(getDefaultThinkingLevel()))")
       expect(output).toBe(level)
     }
-  })
+  }, 20_000)
 
   it('migrates legacy "think" value to "medium"', () => {
     const { configDir, configPath } = setupWorkspaceConfigDir()

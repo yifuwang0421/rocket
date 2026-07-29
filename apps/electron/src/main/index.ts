@@ -6,24 +6,24 @@ loadShellEnv()
 import { app, BrowserWindow, dialog, ipcMain, nativeImage, nativeTheme, shell } from 'electron'
 import { createHash, randomUUID } from 'crypto'
 import { hostname, homedir } from 'os'
-import * as Sentry from '@sentry/electron/main'
 
-// Initialize Sentry error tracking as early as possible after app import.
-// Only enabled in production (packaged) builds to avoid noise during development.
-// DSN is baked in at build time via esbuild --define (same pattern as OAuth secrets).
-//
-// NOTE: Source map upload is intentionally disabled. Stack traces in Sentry will show
-// bundled/minified code. To enable source map upload in the future:
-//   1. Add SENTRY_AUTH_TOKEN, SENTRY_ORG, SENTRY_PROJECT to CI secrets
-//   2. Re-enable the @sentry/vite-plugin in vite.config.ts (handles renderer maps)
-//   3. Add @sentry/esbuild-plugin to scripts/electron-build-main.ts (handles main process maps)
-Sentry.init({
-  dsn: process.env.SENTRY_ELECTRON_INGEST_URL,
-  environment: app.isPackaged ? 'production' : 'development',
-  release: app.getVersion(),
-  // Enabled whenever the ingest URL is available — works in both production (baked via CI)
-  // and development (injected via .env / 1Password). Filter by environment in Sentry dashboard.
-  enabled: !!process.env.SENTRY_ELECTRON_INGEST_URL,
+// Lazy Sentry init wrapper — loads @sentry/electron only when DSN is configured.
+// This avoids the static import error where electron.app may not be ready during
+// module init in Electron 39.
+let Sentry: Awaited<typeof import('@sentry/electron/main')> | null = null
+const machineId = createHash('sha256').update(hostname() + homedir()).digest('hex').slice(0, 16)
+
+async function initSentry(): Promise<void> {
+  const dsn = process.env.SENTRY_ELECTRON_INGEST_URL
+  if (!dsn) return
+
+  try {
+    Sentry = await import('@sentry/electron/main')
+    Sentry.init({
+      dsn,
+      environment: app.isPackaged ? 'production' : 'development',
+      release: app.getVersion(),
+      enabled: true,
 
   // Scrub sensitive data before sending to Sentry.
   // Removes authorization headers, API keys/tokens, and credential-like values.
@@ -55,8 +55,13 @@ Sentry.init({
     }
 
     return event
-  },
-})
+    },
+    })
+    Sentry.setUser({ id: machineId })
+  } catch (err) {
+    console.error('Sentry init failed:', err)
+  }
+}
 
 // Initialize i18n for main process (menus, dialogs, etc.)
 //
@@ -67,8 +72,8 @@ Sentry.init({
 // renderer would restore its language from localStorage on every restart while
 // the main process silently stayed at English — breaking session title language,
 // the system prompt's "Preferred language" line, and the native menu.
-import { setupI18n, i18n, SUPPORTED_LANGUAGE_CODES, type LanguageCode } from '@craft-agent/shared/i18n'
-import { getPersistedUiLanguage, setPersistedUiLanguage } from '@craft-agent/shared/config'
+import { setupI18n, i18n, SUPPORTED_LANGUAGE_CODES, type LanguageCode } from '@rocket/shared/i18n'
+import { getPersistedUiLanguage, setPersistedUiLanguage } from '@rocket/shared/config'
 setupI18n()
 const persistedUiLanguage = getPersistedUiLanguage()
 if (persistedUiLanguage) {
@@ -76,49 +81,51 @@ if (persistedUiLanguage) {
 }
 // Note: deferred startup log lives below where mainLog is available (after log.initialize()).
 
-// Set anonymous machine ID for Sentry user tracking (no PII — just a hash).
-// Uses hostname + homedir to produce a stable per-machine identifier.
-const machineId = createHash('sha256').update(hostname() + homedir()).digest('hex').slice(0, 16)
-Sentry.setUser({ id: machineId })
-
 import { join, delimiter } from 'path'
 import { existsSync, readFileSync } from 'fs'
-import { RPC_CHANNELS } from '@craft-agent/shared/protocol'
-import { SessionManager, setSessionPlatform, setSessionRuntimeHooks } from '@craft-agent/server-core/sessions'
+import { RPC_CHANNELS } from '@rocket/shared/protocol'
+import {
+  APP_NAME,
+  LEGACY_DEEPLINK_SCHEMES,
+  ROCKET_DEEPLINK_SCHEME,
+  isRocketDeepLinkScheme,
+} from '@rocket/shared/branding'
+import { SessionManager, setSessionPlatform, setSessionRuntimeHooks } from '@rocket/server-core/sessions'
 import { registerAllRpcHandlers } from './handlers/index'
-import { registerCoreRpcHandlers, cleanupSessionFileWatchForClient } from '@craft-agent/server-core/handlers/rpc'
+import { registerCoreRpcHandlers, cleanupSessionFileWatchForClient } from '@rocket/server-core/handlers/rpc'
 import type { PlatformServices } from '../runtime/platform'
 import { createElectronPlatform } from './platform'
 import type { HandlerDeps } from './handlers/handler-deps'
-import { bootstrapServer, releaseServerLock } from '@craft-agent/server-core/bootstrap'
-import { createMessagingBootstrap, type MessagingBootstrapHandle } from '@craft-agent/messaging-gateway'
-import { getCredentialManager } from '@craft-agent/shared/credentials'
-import { initModelRefreshService, getModelRefreshService, setFetcherPlatform } from '@craft-agent/server-core/model-fetchers'
-import { setSearchPlatform, setImageProcessor } from '@craft-agent/server-core/services'
+import { bootstrapServer, releaseServerLock } from '@rocket/server-core/bootstrap'
+import { createMessagingBootstrap, type MessagingBootstrapHandle } from '@rocket/messaging-gateway'
+import { getCredentialManager } from '@rocket/shared/credentials'
+import { initModelRefreshService, getModelRefreshService, setFetcherPlatform } from '@rocket/server-core/model-fetchers'
+import { setSearchPlatform, setImageProcessor } from '@rocket/server-core/services'
 import { createApplicationMenu } from './menu'
 import { WindowManager } from './window-manager'
 import { loadWindowState, saveWindowState } from './window-state'
-import { getWorkspaces, getWorkspaceByNameOrId, loadStoredConfig, addWorkspace, saveConfig } from '@craft-agent/shared/config'
-import { getDefaultWorkspacesDir } from '@craft-agent/shared/workspaces'
-import { initializeDocs } from '@craft-agent/shared/docs'
-import { initializeReleaseNotes } from '@craft-agent/shared/release-notes'
-import { ensureDefaultPermissions } from '@craft-agent/shared/agent/permissions-config'
-import { ensureToolIcons, ensurePresetThemes } from '@craft-agent/shared/config'
-import { setBundledAssetsRoot } from '@craft-agent/shared/utils'
-import { initializeBackendHostRuntime } from '@craft-agent/shared/agent/backend'
-import { setPowerShellValidatorRoot } from '@craft-agent/shared/agent'
+import { getWorkspaces, getWorkspaceByNameOrId, loadStoredConfig, addWorkspace, saveConfig } from '@rocket/shared/config'
+import { getDefaultWorkspacesDir } from '@rocket/shared/workspaces'
+import { initializeDocs } from '@rocket/shared/docs'
+import { initializeReleaseNotes } from '@rocket/shared/release-notes'
+import { ensureDefaultPermissions } from '@rocket/shared/agent/permissions-config'
+import { ensureToolIcons, ensurePresetThemes } from '@rocket/shared/config'
+import { setBundledAssetsRoot } from '@rocket/shared/utils'
+import { initializeBackendHostRuntime } from '@rocket/shared/agent/backend'
+import { setPowerShellValidatorRoot } from '@rocket/shared/agent'
 import { handleDeepLink } from './deep-link'
 import { BrowserPaneManager } from './browser-pane-manager'
-import { OAuthFlowStore } from '@craft-agent/shared/auth'
+import { OAuthFlowStore } from '@rocket/shared/auth'
 import { registerThumbnailScheme, registerThumbnailHandler } from './thumbnail-protocol'
 import log, { isDebugMode, mainLog, getLogFilePath, getMessagingGatewayLogFilePath, messagingGatewayLog, autoUpdateLog } from './logger'
-import { setPerfEnabled, enableDebug } from '@craft-agent/shared/utils'
-import { registerPiModelResolver } from '@craft-agent/shared/config'
-import { getPiModelsForAuthProvider, getAllPiModels } from '@craft-agent/shared/config'
+import { setPerfEnabled, enableDebug } from '@rocket/shared/utils'
+import { registerPiModelResolver } from '@rocket/shared/config'
+import { getPiModelsForAuthProvider, getAllPiModels } from '@rocket/shared/config'
 import { initNotificationService, initBadgeIcon, initInstanceBadge, updateBadgeCount } from './notifications'
-import { checkForUpdatesOnLaunch, setAutoUpdateEventSink, isUpdating, setBeforeUpdateQuitHook } from './auto-update'
-import type { EventSink } from '@craft-agent/server-core/transport'
-import { validateGitBashPath, checkVCRedistInstalled } from '@craft-agent/server-core/services'
+// auto-update is loaded lazily inside app.whenReady() to avoid
+// electron-updater's constructor-time app dependency (Electron 39+).
+import type { EventSink } from '@rocket/server-core/transport'
+import { validateGitBashPath, checkVCRedistInstalled } from '@rocket/server-core/services'
 
 // Initialize electron-log for renderer process support
 log.initialize()
@@ -132,13 +139,13 @@ mainLog.info('[i18n] startup hydration', {
 
 // Enable debug/perf in dev mode (running from source)
 if (isDebugMode) {
-  process.env.CRAFT_DEBUG = '1'
+  process.env.ROCKET_DEBUG = '1'
   enableDebug()
   setPerfEnabled(true)
 }
 
 // Bundle CLI tools: resolve platform-specific uv binary and wrapper scripts.
-// These are available to all agent Bash sessions via CRAFT_UV, CRAFT_SCRIPTS env vars
+// These are available to all agent Bash sessions via ROCKET_UV, ROCKET_SCRIPTS env vars
 // and PATH prepend. uv auto-downloads Python 3.12 on first use (~5s, then cached).
 {
   // In packaged app: resources are at process.resourcesPath/app/resources/
@@ -156,30 +163,30 @@ if (isDebugMode) {
   const fallbackUv = bundledUvExists ? null : 'uv'
 
   // Runtime resolver hints for shared session tools
-  process.env.CRAFT_IS_PACKAGED = app.isPackaged ? '1' : '0'
-  process.env.CRAFT_RESOURCES_BASE = resourcesBase
-  process.env.CRAFT_APP_ROOT = app.isPackaged ? app.getAppPath() : process.cwd()
+  process.env.ROCKET_IS_PACKAGED = app.isPackaged ? '1' : '0'
+  process.env.ROCKET_RESOURCES_BASE = resourcesBase
+  process.env.ROCKET_APP_ROOT = app.isPackaged ? app.getAppPath() : process.cwd()
 
-  process.env.CRAFT_UV = bundledUvExists ? uvBinary : (fallbackUv ?? uvBinary)
+  process.env.ROCKET_UV = bundledUvExists ? uvBinary : (fallbackUv ?? uvBinary)
 
   // Bun runtime (packaged builds should prefer bundled runtime over PATH)
   const bunBinary = join(resourcesBase, 'vendor', 'bun', process.platform === 'win32' ? 'bun.exe' : 'bun')
   if (existsSync(bunBinary)) {
-    process.env.CRAFT_BUN = bunBinary
+    process.env.ROCKET_BUN = bunBinary
   }
 
-  process.env.CRAFT_SCRIPTS = scriptsDir
-  process.env.CRAFT_COMMANDS_ENTRY = app.isPackaged
-    ? join(app.getAppPath(), 'packages', 'craft-agents-commands', 'src', 'main.ts')
-    : join(process.cwd(), 'packages', 'craft-agents-commands', 'src', 'main.ts')
-  process.env.CRAFT_CLI_ENTRY = app.isPackaged
-    ? join(app.getAppPath(), 'packages', 'craft-cli', 'src', 'cli.ts')
-    : join(process.cwd(), 'packages', 'craft-cli', 'src', 'cli.ts')
-  process.env.CRAFT_COMMANDS_DOC_PATH = app.isPackaged
-    ? join(resourcesBase, 'resources', 'docs', 'craft-cli.md')
-    : join(process.cwd(), 'apps', 'electron', 'resources', 'docs', 'craft-cli.md')
-  process.env.CRAFT_CLI_DOC_PATH = process.env.CRAFT_COMMANDS_DOC_PATH
-  process.env.CRAFT_AGENT_VERSION = app.getVersion()
+  process.env.ROCKET_SCRIPTS = scriptsDir
+  process.env.ROCKET_COMMANDS_ENTRY = app.isPackaged
+    ? join(resourcesBase, 'resources', 'rocket-cli', 'index.js')
+    : join(process.cwd(), 'apps', 'cli', 'src', 'index.ts')
+  process.env.ROCKET_CLI_ENTRY = app.isPackaged
+    ? join(resourcesBase, 'resources', 'rocket-cli', 'index.js')
+    : join(process.cwd(), 'apps', 'cli', 'src', 'index.ts')
+  process.env.ROCKET_COMMANDS_DOC_PATH = app.isPackaged
+    ? join(resourcesBase, 'resources', 'docs', 'rocket-cli.md')
+    : join(process.cwd(), 'apps', 'electron', 'resources', 'docs', 'rocket-cli.md')
+  process.env.ROCKET_CLI_DOC_PATH = process.env.ROCKET_COMMANDS_DOC_PATH
+  process.env.ROCKET_AGENT_VERSION = app.getVersion()
   // Prepend both generic wrappers dir and platform uv dir:
   // - binDir exposes wrapper commands (pdf-tool, docx-tool, ...)
   // - uvPlatformDir exposes raw `uv` for direct shell usage / debugging
@@ -188,12 +195,12 @@ if (isDebugMode) {
   if (!bundledUvExists) {
     mainLog.warn('Bundled uv binary missing, CLI document tools may fail unless uv is available on PATH.', {
       expectedUvPath: uvBinary,
-      usingCraftUv: process.env.CRAFT_UV,
+      configuredUv: process.env.ROCKET_UV,
     })
   }
 
   if (isDebugMode) {
-    mainLog.info('CLI tools configured:', { uvBinary: process.env.CRAFT_UV, binDir, scriptsDir, bundledUvExists })
+    mainLog.info('CLI tools configured:', { uvBinary: process.env.ROCKET_UV, binDir, scriptsDir, bundledUvExists })
   }
 }
 
@@ -203,9 +210,25 @@ registerPiModelResolver((piAuthProvider) =>
   piAuthProvider ? getPiModelsForAuthProvider(piAuthProvider) : getAllPiModels()
 )
 
-// Custom URL scheme for deeplinks (e.g., craftagents://auth-complete)
-// Supports multi-instance dev: CRAFT_DEEPLINK_SCHEME env var (craftagents1, craftagents2, etc.)
-const DEEPLINK_SCHEME = process.env.CRAFT_DEEPLINK_SCHEME || 'craftagents'
+// Canonical deep-link scheme is rocket://. Numbered development instances may
+// override it (for example rocket1://); the former craftagents:// scheme stays
+// registered only as an inbound compatibility alias.
+const DEEPLINK_SCHEME = process.env.ROCKET_DEEPLINK_SCHEME || ROCKET_DEEPLINK_SCHEME
+const REGISTERED_DEEPLINK_SCHEMES = Array.from(new Set([
+  DEEPLINK_SCHEME,
+  ROCKET_DEEPLINK_SCHEME,
+  ...LEGACY_DEEPLINK_SCHEMES,
+]))
+
+function findRocketDeepLink(args: readonly string[]): string | undefined {
+  return args.find((arg) => {
+    try {
+      return isRocketDeepLinkScheme(new URL(arg).protocol, [DEEPLINK_SCHEME])
+    } catch {
+      return false
+    }
+  })
+}
 
 let windowManager: WindowManager | null = null
 let sessionManager: SessionManager | null = null
@@ -225,19 +248,21 @@ let messagingHandle: MessagingBootstrapHandle | null = null
 let pendingDeepLink: string | null = null
 
 // Set app name early (before app.whenReady) to ensure correct macOS menu bar title
-// Supports multi-instance dev: CRAFT_APP_NAME env var (e.g., "Craft Agents [1]")
-app.setName(process.env.CRAFT_APP_NAME || 'Craft Agents')
+// Supports multi-instance dev: ROCKET_APP_NAME env var (e.g., "Rocket [1]")
+app.setName(process.env.ROCKET_APP_NAME || APP_NAME)
 
-// Register as default protocol client for craftagents:// URLs
+// Register the canonical scheme and the temporary legacy compatibility alias.
 // This must be done before app.whenReady() on some platforms
-if (process.defaultApp) {
-  // Development mode: need to pass the app path
-  if (process.argv.length >= 2) {
-    app.setAsDefaultProtocolClient(DEEPLINK_SCHEME, process.execPath, [process.argv[1]])
+for (const scheme of REGISTERED_DEEPLINK_SCHEMES) {
+  if (process.defaultApp) {
+    // Development mode: need to pass the app path
+    if (process.argv.length >= 2) {
+      app.setAsDefaultProtocolClient(scheme, process.execPath, [process.argv[1]])
+    }
+  } else {
+    // Production mode
+    app.setAsDefaultProtocolClient(scheme)
   }
-} else {
-  // Production mode
-  app.setAsDefaultProtocolClient(DEEPLINK_SCHEME)
 }
 
 // Apply network proxy settings early (Node-level only — Electron sessions require app.whenReady)
@@ -245,7 +270,7 @@ import { applyConfiguredProxySettings } from './network-proxy'
 void applyConfiguredProxySettings()
 
 // Accept self-signed / untrusted certificates when connecting to a user-configured remote server.
-// Only bypasses cert validation for the exact CRAFT_SERVER_URL origin — all other connections
+// Only bypasses cert validation for the exact ROCKET_SERVER_URL origin — all other connections
 // use standard certificate verification. Without this, wss:// to self-signed servers fails with
 // ERR_CERT_AUTHORITY_INVALID because Chromium's WebSocket rejects untrusted certs.
 //
@@ -258,10 +283,10 @@ function normalizeOriginForCert(urlStr: string): string {
   return u.origin
 }
 
-if (process.env.CRAFT_SERVER_URL) {
+if (process.env.ROCKET_SERVER_URL) {
   let serverOrigin: string | undefined
   try {
-    serverOrigin = normalizeOriginForCert(process.env.CRAFT_SERVER_URL)
+    serverOrigin = normalizeOriginForCert(process.env.ROCKET_SERVER_URL)
   } catch {
     // Invalid URL — will fail later during connection, no need to handle here
   }
@@ -301,14 +326,14 @@ app.on('open-url', (event, url) => {
 })
 
 // Handle deeplink on Windows/Linux (single instance check)
-const gotTheLock = app.requestSingleInstanceLock()
-if (!gotTheLock) {
-  app.quit()
-} else {
+// Note: On some Windows 11 builds, requestSingleInstanceLock() can return false
+// even when no other instance exists, causing false-positive app.quit(). If the
+// lock fails we simply skip the single-instance enforcement and proceed normally.
+if (app.requestSingleInstanceLock()) {
   app.on('second-instance', (_event, commandLine, _workingDirectory) => {
     // Someone tried to run a second instance, we should focus our window.
     // On Windows/Linux, the deeplink is in commandLine
-    const url = commandLine.find(arg => arg.startsWith(`${DEEPLINK_SCHEME}://`))
+    const url = findRocketDeepLink(commandLine)
     if (url && windowManager) {
       mainLog.info('Received deeplink from second instance:', url)
       handleDeepLink(url, windowManager, moduleSink ?? undefined, moduleClientResolver ?? undefined).catch(err => {
@@ -380,8 +405,11 @@ async function createInitialWindows(): Promise<void> {
 }
 
 app.whenReady().then(async () => {
+  // Initialize error tracking (no-op unless SENTRY_ELECTRON_INGEST_URL is set)
+  await initSentry()
+
   // Export packaged state as env var so logger.ts (and headless Bun) don't need 'electron'
-  process.env.CRAFT_IS_PACKAGED = app.isPackaged ? 'true' : 'false'
+  process.env.ROCKET_IS_PACKAGED = app.isPackaged ? 'true' : 'false'
 
   // Register bundled assets root so all seeding functions can find their files
   // (docs, permissions, themes, tool-icons resolve via getBundledAssetsDir)
@@ -409,10 +437,10 @@ app.whenReady().then(async () => {
   // Ensure default permissions file exists (copies bundled default.json on first run)
   ensureDefaultPermissions()
 
-  // Seed tool icons to ~/.craft-agent/tool-icons/ (copies bundled SVGs on first run)
+  // Seed tool icons to ~/.rocket/tool-icons/ (copies bundled SVGs on first run)
   ensureToolIcons()
 
-  // Seed preset themes to ~/.craft-agent/themes/ (copies bundled theme JSONs on first run)
+  // Seed preset themes to ~/.rocket/themes/ (copies bundled theme JSONs on first run)
   ensurePresetThemes()
 
   // Register thumbnail:// protocol handler (scheme was registered earlier, before app.whenReady)
@@ -442,8 +470,8 @@ app.whenReady().then(async () => {
     }
 
     // Multi-instance dev: show instance number badge on dock icon
-    // CRAFT_INSTANCE_NUMBER is set by detect-instance.sh for numbered folders
-    const instanceNum = process.env.CRAFT_INSTANCE_NUMBER
+    // ROCKET_INSTANCE_NUMBER is set by detect-instance.sh for numbered folders
+    const instanceNum = process.env.ROCKET_INSTANCE_NUMBER
     if (instanceNum) {
       const num = parseInt(instanceNum, 10)
       if (!isNaN(num) && num > 0) {
@@ -459,14 +487,14 @@ app.whenReady().then(async () => {
     // Create the application menu (needs windowManager for New Window action)
     createApplicationMenu(windowManager)
 
-    // When CRAFT_SERVER_URL is set, this Electron instance is a thin client —
+    // When ROCKET_SERVER_URL is set, this Electron instance is a thin client —
     // it only creates windows whose preload connects to the remote server.
     // Skip server-side initialization (SessionManager, model refresh, platform injection).
-    const isClientOnly = !!process.env.CRAFT_SERVER_URL
-    const isHeadless = !!process.env.CRAFT_HEADLESS
+    const isClientOnly = !!process.env.ROCKET_SERVER_URL
+    const isHeadless = !!process.env.ROCKET_HEADLESS
 
     if (isClientOnly) {
-      mainLog.info(`Client-only mode: CRAFT_SERVER_URL=${process.env.CRAFT_SERVER_URL} (server initialization skipped)`)
+      mainLog.info(`Client-only mode: ROCKET_SERVER_URL=${process.env.ROCKET_SERVER_URL} (server initialization skipped)`)
     }
 
     // Initialize notification service (always — triggered by server push events)
@@ -487,7 +515,7 @@ app.whenReady().then(async () => {
       logger: log,
       isDebugMode,
       getLogFilePath,
-      captureError: (err) => Sentry.captureException(err),
+      captureError: (err) => Sentry?.captureException(err),
     })
 
     // Bootstrap IPC handlers — preload uses sendSync for window-local details
@@ -553,7 +581,7 @@ app.whenReady().then(async () => {
     if (!isClientOnly) {
       // Restore persisted Git Bash path on Windows (must happen before any SDK subprocess spawn)
       if (process.platform === 'win32') {
-        const { getGitBashPath, clearGitBashPath } = await import('@craft-agent/shared/config')
+        const { getGitBashPath, clearGitBashPath } = await import('@rocket/shared/config')
         const gitBashPath = getGitBashPath()
         if (gitBashPath) {
           const validation = await validateGitBashPath(gitBashPath)
@@ -574,9 +602,9 @@ app.whenReady().then(async () => {
         const vcCheck = checkVCRedistInstalled()
         if (!vcCheck.installed) {
           mainLog.warn('[vcredist]', vcCheck.message)
-          process.env.CRAFT_VCREDIST_MISSING = '1'
+          process.env.ROCKET_VCREDIST_MISSING = '1'
           if (vcCheck.downloadUrl) {
-            process.env.CRAFT_VCREDIST_URL = vcCheck.downloadUrl
+            process.env.ROCKET_VCREDIST_URL = vcCheck.downloadUrl
           }
         } else if (isDebugMode) {
           mainLog.info('[vcredist]', vcCheck.message)
@@ -591,7 +619,7 @@ app.whenReady().then(async () => {
       const resolveClientId = (wcId: number) => clientMap.get(wcId)
 
       // Read embedded server config (Server settings page)
-      const { getServerConfig } = await import('@craft-agent/shared/config')
+      const { getServerConfig } = await import('@rocket/shared/config')
       const embeddedServerConfig = getServerConfig()
       const serverModeEnabled = embeddedServerConfig.enabled && !isClientOnly
 
@@ -599,14 +627,14 @@ app.whenReady().then(async () => {
       const serverToken = serverModeEnabled && embeddedServerConfig.token
         ? embeddedServerConfig.token
         : randomUUID()
-      const rpcHost = process.env.CRAFT_RPC_HOST
+      const rpcHost = process.env.ROCKET_RPC_HOST
         ?? (serverModeEnabled ? '0.0.0.0' : '127.0.0.1')
-      const rpcPort = process.env.CRAFT_RPC_PORT
-        ? parseInt(process.env.CRAFT_RPC_PORT, 10)
+      const rpcPort = process.env.ROCKET_RPC_PORT
+        ? parseInt(process.env.ROCKET_RPC_PORT, 10)
         : (serverModeEnabled ? embeddedServerConfig.port : 0)
 
       // Load TLS certificates if configured
-      let tls: import('@craft-agent/server-core/transport').WsRpcTlsOptions | undefined
+      let tls: import('@rocket/server-core/transport').WsRpcTlsOptions | undefined
       if (serverModeEnabled && embeddedServerConfig.tlsCertPath && embeddedServerConfig.tlsKeyPath) {
         try {
           tls = {
@@ -641,7 +669,7 @@ app.whenReady().then(async () => {
             onSessionStarted,
             onSessionStopped,
             captureException: (error, context) => {
-              Sentry.captureException(error instanceof Error ? error : new Error(String(error)), {
+              Sentry?.captureException(error instanceof Error ? error : new Error(String(error)), {
                 tags: {
                   ...(context?.errorSource ? { errorSource: context.errorSource } : {}),
                   ...(context?.sessionId ? { sessionId: context.sessionId } : {}),
@@ -666,13 +694,13 @@ app.whenReady().then(async () => {
             sessionManager: sm,
             credentialManager: getCredentialManager(),
             getMessagingDir: (wsId: string) =>
-              join(homedir(), '.craft-agent', 'workspaces', wsId, 'messaging'),
+              join(homedir(), '.rocket', 'workspaces', wsId, 'messaging'),
             getLegacyMessagingDir: (wsId: string) => {
               const ws = getWorkspaces().find((w) => w.id === wsId)
               return ws ? join(ws.rootPath, 'messaging') : undefined
             },
             // Route messaging diagnostics through the dedicated messaging log
-            // at ~/.craft-agent/logs/messaging-gateway.log.
+            // at ~/.rocket/logs/messaging-gateway.log.
             logger: messagingGatewayLog,
             // WhatsApp worker runs under Electron's embedded Node via
             // ELECTRON_RUN_AS_NODE (WhatsAppAdapter defaults nodeBin to
@@ -703,7 +731,7 @@ app.whenReady().then(async () => {
         setSessionEventSink: (sm, sink) => sm.setEventSink(sink),
         initializeSessionManager: (sm) => sm.initialize(),
         initModelRefreshService: () => initModelRefreshService(async (slug: string) => {
-          const { getCredentialManager } = await import('@craft-agent/shared/credentials')
+          const { getCredentialManager } = await import('@rocket/shared/credentials')
           const manager = getCredentialManager()
           const [apiKey, oauth] = await Promise.all([
             manager.getLlmApiKey(slug).catch(() => null),
@@ -767,7 +795,7 @@ app.whenReady().then(async () => {
 
       // Remove workspace from config (cleanup stale entries)
       ipcMain.handle('workspace:remove', async (_event, workspaceId: string) => {
-        const { removeWorkspace: remove } = await import('@craft-agent/shared/config')
+        const { removeWorkspace: remove } = await import('@rocket/shared/config')
         return remove(workspaceId)
       })
 
@@ -791,7 +819,7 @@ app.whenReady().then(async () => {
       ipcMain.handle('session:transferToWorkspace', async (_event, sessionId: string, targetWorkspaceId: string, sessionIndex?: number, sessionCount?: number) => {
         const idx = sessionIndex ?? 0
         const count = sessionCount ?? 1
-        const { getWorkspaceByNameOrId } = await import('@craft-agent/shared/config')
+        const { getWorkspaceByNameOrId } = await import('@rocket/shared/config')
         const { connectToRemote } = await import('./handlers/workspace')
         const { CHUNKED_TRANSFER_THRESHOLD, getChunkCount, invokeChunked, prepareChunkedPayload } = await import('./chunked-rpc')
 
@@ -960,13 +988,13 @@ app.whenReady().then(async () => {
       }
 
       instance.wsServer.handle(RPC_CHANNELS.settings.GET_SERVER_CONFIG, async () => {
-        const { getServerConfig: getConfig } = await import('@craft-agent/shared/config')
+        const { getServerConfig: getConfig } = await import('@rocket/shared/config')
         return getConfig()
       })
 
       instance.wsServer.handle(RPC_CHANNELS.settings.SET_SERVER_CONFIG, async (_ctx: unknown, config: unknown) => {
-        const { setServerConfig: setConfig } = await import('@craft-agent/shared/config')
-        const cfg = config as import('@craft-agent/shared/config/server-config').ServerConfig
+        const { setServerConfig: setConfig } = await import('@rocket/shared/config')
+        const cfg = config as import('@rocket/shared/config/server-config').ServerConfig
         // Validate port range
         if (cfg.port < 1024 || cfg.port > 65535) {
           throw new Error(`Port must be between 1024 and 65535, got ${cfg.port}`)
@@ -982,7 +1010,7 @@ app.whenReady().then(async () => {
       })
 
       instance.wsServer.handle(RPC_CHANNELS.settings.GET_SERVER_STATUS, async () => {
-        const { getServerConfig: getConfig } = await import('@craft-agent/shared/config')
+        const { getServerConfig: getConfig } = await import('@rocket/shared/config')
         const saved = getConfig()
         const protocol = runningServerState.tls ? 'wss' : 'ws'
 
@@ -1047,8 +1075,8 @@ app.whenReady().then(async () => {
 
       // Headless: print connection details
       if (isHeadless) {
-        console.log(`CRAFT_SERVER_URL=${instance.protocol}://${instance.host}:${instance.port}`)
-        console.log(`CRAFT_SERVER_TOKEN=${instance.token}`)
+        console.log(`ROCKET_SERVER_URL=${instance.protocol}://${instance.host}:${instance.port}`)
+        console.log(`ROCKET_SERVER_TOKEN=${instance.token}`)
       }
     }
 
@@ -1063,7 +1091,7 @@ app.whenReady().then(async () => {
     // Skip in thin-client mode — credentials are managed by the remote server.
     if (!isClientOnly) {
       try {
-        const { getCredentialManager } = await import('@craft-agent/shared/credentials')
+        const { getCredentialManager } = await import('@rocket/shared/credentials')
         const credentialManager = getCredentialManager()
         const health = await credentialManager.checkHealth()
         if (!health.healthy) {
@@ -1088,26 +1116,30 @@ app.whenReady().then(async () => {
     // Runs after init so config and auth state are available.
     // Derives values from the default LLM connection instead of legacy config fields.
     try {
-      const { getLlmConnection, getDefaultLlmConnection } = await import('@craft-agent/shared/config')
+      const { getLlmConnection, getDefaultLlmConnection } = await import('@rocket/shared/config')
       const workspaces = getWorkspaces()
       const defaultConnSlug = getDefaultLlmConnection()
       const defaultConn = defaultConnSlug ? getLlmConnection(defaultConnSlug) : null
-      Sentry.setTag('authType', defaultConn?.authType ?? 'unknown')
-      Sentry.setTag('providerType', defaultConn?.providerType ?? 'unknown')
-      Sentry.setTag('hasCustomEndpoint', String(!!defaultConn?.baseUrl))
-      Sentry.setTag('model', defaultConn?.defaultModel ?? 'default')
-      Sentry.setTag('workspaceCount', String(workspaces.length))
+      Sentry?.setTag('authType', defaultConn?.authType ?? 'unknown')
+      Sentry?.setTag('providerType', defaultConn?.providerType ?? 'unknown')
+      Sentry?.setTag('hasCustomEndpoint', String(!!defaultConn?.baseUrl))
+      Sentry?.setTag('model', defaultConn?.defaultModel ?? 'default')
+      Sentry?.setTag('workspaceCount', String(workspaces.length))
     } catch (err) {
       mainLog.warn('Failed to set Sentry context tags:', err)
     }
 
     // Initialize auto-update (check immediately on launch)
     // Skip in dev mode to avoid replacing /Applications app and launching it instead
-    if (moduleSink) setAutoUpdateEventSink(moduleSink)
+    if (moduleSink) {
+      const { setAutoUpdateEventSink } = await import('./auto-update')
+      setAutoUpdateEventSink(moduleSink)
+    }
     // Snapshot multi-window state BEFORE quitAndInstall. electron-updater
     // (Squirrel.Mac) destroys BrowserWindows between quitAndInstall and
     // before-quit firing; saving from before-quit alone would overwrite
     // window-state.json with an empty array.
+    const { setBeforeUpdateQuitHook, checkForUpdatesOnLaunch } = await import('./auto-update')
     setBeforeUpdateQuitHook(() => captureAndSaveWindowState('pre-update'))
     if (app.isPackaged) {
       checkForUpdatesOnLaunch().catch(err => {
@@ -1152,9 +1184,8 @@ app.whenReady().then(async () => {
     }
   })
 })
-
-app.on('window-all-closed', () => {
-  if (process.env.CRAFT_HEADLESS) return  // headless server stays alive
+  app.on('window-all-closed', () => {
+  if (process.env.ROCKET_HEADLESS) return  // headless server stays alive
   // On macOS, apps typically stay active until explicitly quit
   if (process.platform !== 'darwin') {
     app.quit()
@@ -1187,8 +1218,10 @@ function captureAndSaveWindowState(reason: 'before-quit' | 'pre-update'): number
 }
 
 // Save window state and clean up resources before quitting
-app.on('before-quit', async (event) => {
+mainLog.error("[DEBUG] REGISTERING before-quit handler")
+app.on(`before-quit`, async (event) => {
   // Avoid re-entry when we call app.exit()
+    mainLog.error(`[DEBUG] before-quit FIRED isQuitting=${isQuitting}`)
   if (isQuitting) return
   isQuitting = true
 
@@ -1200,7 +1233,7 @@ app.on('before-quit', async (event) => {
     // Empty-snapshot guard: during update-quit, electron-updater has already
     // destroyed all BrowserWindows by the time before-quit fires. The pre-update
     // hook already saved the real state — don't let this late save overwrite it.
-    if (windows.length === 0 && isUpdating()) {
+    if (windows.length === 0 && (await import('./auto-update')).isUpdating()) {
       mainLog.warn('[window-state] skip save: empty snapshot during update-quit (pre-update snapshot wins)')
     } else {
       captureAndSaveWindowState('before-quit')
@@ -1209,7 +1242,7 @@ app.on('before-quit', async (event) => {
     // update-quit, record it to the dedicated always-on auto-update log (#891)
     // so the install/quit handoff is diagnosable in production; normal quits
     // stay on the debug-only main log.
-    const isUpdateQuit = isUpdating()
+    const isUpdateQuit = (await import('./auto-update')).isUpdating()
     const beforeQuitSave = {
       windowCount: windows.length,
       electronWindowCount: BrowserWindow.getAllWindows().length,
@@ -1268,7 +1301,7 @@ app.on('before-quit', async (event) => {
 
     // If update is in progress, let electron-updater handle the quit flow
     // Force exit breaks the NSIS installer on Windows
-    if (isUpdating()) {
+    if ((await import('./auto-update')).isUpdating()) {
       mainLog.info('Update in progress, letting electron-updater handle quit')
       app.quit()
       return
@@ -1283,10 +1316,10 @@ app.on('before-quit', async (event) => {
 // a custom handler can interfere with @sentry/electron's automatic capture.
 process.on('uncaughtException', (error) => {
   mainLog.error('Uncaught exception:', error)
-  Sentry.captureException(error)
+  Sentry?.captureException(error)
 })
 
 process.on('unhandledRejection', (reason, promise) => {
   mainLog.error('Unhandled rejection at:', promise, 'reason:', reason)
-  Sentry.captureException(reason instanceof Error ? reason : new Error(String(reason)))
+  Sentry?.captureException(reason instanceof Error ? reason : new Error(String(reason)))
 })

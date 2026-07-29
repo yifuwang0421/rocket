@@ -1,14 +1,14 @@
 {
-  "name": "@craft-agent/electron",
+  "name": "@rocket/electron",
   "version": "0.11.2",
-  "description": "Electron desktop app for Craft Agents",
+  "description": "Electron desktop app for Rocket",
   "main": "dist/main.cjs",
   "private": true,
   "author": {
-    "name": "Craft Docs Ltd.",
-    "email": "support@craft.do"
+    "name": "Rocket",
+    "email": "support@rocket.app"
   },
-  "homepage": "https://agents.craft.do",
+  "homepage": "https://agents.rocket.app",
   "license": "Apache-2.0",
   "type": "module",
   "engines": {
@@ -36,11 +36,11 @@
     "lint:fix": "eslint src/ --fix"
   },
   "dependencies": {
-    "@craft-agent/core": "workspace:*",
-    "@craft-agent/messaging-gateway": "workspace:*",
-    "@craft-agent/server-core": "workspace:*",
-    "@craft-agent/shared": "workspace:*",
-    "@craft-agent/ui": "workspace:*",
+    "@rocket/core": "workspace:*",
+    "@rocket/messaging-gateway": "workspace:*",
+    "@rocket/server-core": "workspace:*",
+    "@rocket/shared": "workspace:*",
+    "@rocket/ui": "workspace:*",
     "@dnd-kit/core": "^6.3.1",
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",

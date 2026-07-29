@@ -10,6 +10,8 @@
 
 import { describe, it, expect, afterEach } from 'bun:test'
 import { join } from 'node:path'
+import { mkdtemp, rm } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
 import type { Subprocess } from 'bun'
 import WebSocket from 'ws'
 
@@ -28,15 +30,17 @@ interface SpawnedServer {
 async function spawnTestServer(extraEnv?: Record<string, string>): Promise<SpawnedServer> {
   const token = crypto.randomUUID() + crypto.randomUUID() // 72 chars, well above 16 minimum
   const { CLAUDECODE: _, ...parentEnv } = process.env
+  const configDir = await mkdtemp(join(tmpdir(), 'rocket-server-test-'))
 
   const proc = Bun.spawn(['bun', 'run', SERVER_ENTRY], {
     env: {
       ...parentEnv,
       ...extraEnv,
-      CRAFT_SERVER_TOKEN: token,
-      CRAFT_RPC_PORT: '0',
-      CRAFT_RPC_HOST: '127.0.0.1',
-      CRAFT_HEALTH_PORT: '0', // random port
+      ROCKET_SERVER_TOKEN: token,
+      ROCKET_RPC_PORT: '0',
+      ROCKET_RPC_HOST: '127.0.0.1',
+      ROCKET_HEALTH_PORT: '0', // random port
+      ROCKET_CONFIG_DIR: configDir,
     },
     stdout: 'pipe',
     stderr: 'pipe',
@@ -45,6 +49,7 @@ async function spawnTestServer(extraEnv?: Record<string, string>): Promise<Spawn
   return new Promise<SpawnedServer>((resolve, reject) => {
     const timer = setTimeout(() => {
       proc.kill()
+      void rm(configDir, { recursive: true, force: true })
       reject(new Error(`Server did not start within ${STARTUP_TIMEOUT}ms`))
     }, STARTUP_TIMEOUT)
 
@@ -55,8 +60,8 @@ async function spawnTestServer(extraEnv?: Record<string, string>): Promise<Spawn
       const lines = buffer.split('\n')
       buffer = lines.pop() ?? ''
       for (const line of lines) {
-        if (line.startsWith('CRAFT_SERVER_URL=')) {
-          url = line.slice('CRAFT_SERVER_URL='.length).trim()
+        if (line.startsWith('ROCKET_SERVER_URL=')) {
+          url = line.slice('ROCKET_SERVER_URL='.length).trim()
         }
         if (url) {
           clearTimeout(timer)
@@ -68,6 +73,7 @@ async function spawnTestServer(extraEnv?: Record<string, string>): Promise<Spawn
             stop: async () => {
               proc.kill('SIGTERM')
               await proc.exited
+              await rm(configDir, { recursive: true, force: true })
             },
           })
           return
@@ -90,7 +96,8 @@ async function spawnTestServer(extraEnv?: Record<string, string>): Promise<Spawn
       }
       clearTimeout(timer)
       if (!url) {
-        reject(new Error('Server exited before printing CRAFT_SERVER_URL'))
+        await rm(configDir, { recursive: true, force: true })
+        reject(new Error('Server exited before printing ROCKET_SERVER_URL'))
       }
     })()
   })
@@ -151,18 +158,21 @@ describe('headless server smoke test', () => {
   it('rejects short token at startup', async () => {
     const token = 'short'
     const { CLAUDECODE: _, ...parentEnv } = process.env
+    const configDir = await mkdtemp(join(tmpdir(), 'rocket-server-test-'))
     const proc = Bun.spawn(['bun', 'run', SERVER_ENTRY], {
       env: {
         ...parentEnv,
-        CRAFT_SERVER_TOKEN: token,
-        CRAFT_RPC_PORT: '0',
-        CRAFT_RPC_HOST: '127.0.0.1',
+        ROCKET_SERVER_TOKEN: token,
+        ROCKET_RPC_PORT: '0',
+        ROCKET_RPC_HOST: '127.0.0.1',
+        ROCKET_CONFIG_DIR: configDir,
       },
       stdout: 'pipe',
       stderr: 'pipe',
     })
 
     const exitCode = await proc.exited
+    await rm(configDir, { recursive: true, force: true })
     expect(exitCode).not.toBe(0)
   }, TEST_TIMEOUT)
 
@@ -176,9 +186,12 @@ describe('headless server smoke test', () => {
     // Send SIGTERM
     server.proc.kill('SIGTERM')
     const exitCode = await server.proc.exited
-    expect(exitCode).toBe(0)
+    // Windows does not deliver POSIX SIGTERM handlers to Bun subprocesses;
+    // Bun reports the conventional 128 + 15 exit code after termination.
+    expect(exitCode).toBe(process.platform === 'win32' ? 143 : 0)
 
-    // Mark as stopped so afterEach doesn't double-kill
+    // Cleanup the isolated config directory, then prevent afterEach double-stop.
+    await server.stop()
     server = null
   }, TEST_TIMEOUT)
 })

@@ -2,7 +2,7 @@
  * Tests for the internal `uiLanguage` preference field that backs main-process
  * i18n hydration. See packages/shared/CLAUDE.md → "Cross-process language persistence".
  *
- * `CONFIG_DIR` is captured at module-load from `process.env.CRAFT_CONFIG_DIR`,
+ * `CONFIG_DIR` is captured at module-load from `process.env.ROCKET_CONFIG_DIR`,
  * so each scenario runs in a subprocess with its own tmpdir — the same pattern
  * `storage-startup-migration.test.ts` uses.
  */
@@ -22,7 +22,7 @@ interface RunResult {
 
 function runScript(configDir: string, script: string): RunResult {
   const result = Bun.spawnSync([process.execPath, '--eval', script], {
-    env: { ...process.env, CRAFT_CONFIG_DIR: configDir },
+    env: { ...process.env, ROCKET_CONFIG_DIR: configDir },
     stdout: 'pipe',
     stderr: 'pipe',
   });
@@ -124,15 +124,16 @@ describe('preferences.uiLanguage', () => {
     it('is idempotent — does not rewrite the file when value is unchanged', () => {
       const { configDir, prefsFile } = setupDir();
       try {
+        const prefsFileLiteral = JSON.stringify(prefsFile);
         const r = runScript(configDir, `
           import { setPersistedUiLanguage } from '${PREFS_MODULE}';
           import { statSync } from 'fs';
           setPersistedUiLanguage('hu');
-          const first = statSync('${prefsFile}').mtimeMs;
+          const first = statSync(${prefsFileLiteral}).mtimeMs;
           const start = Date.now();
           while (Date.now() - start < 30) {}
           setPersistedUiLanguage('hu');
-          const second = statSync('${prefsFile}').mtimeMs;
+          const second = statSync(${prefsFileLiteral}).mtimeMs;
           console.log(JSON.stringify({ first, second }));
         `);
         expect(r.exitCode).toBe(0);

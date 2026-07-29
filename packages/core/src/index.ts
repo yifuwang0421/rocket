@@ -1,7 +1,7 @@
 /**
- * @craft-agent/core
+ * @rocket/core
  *
- * Core types and utilities for Craft Agent.
+ * Core types and utilities for Rocket.
  *
  * NOTE: This package currently only exports types and utilities.
  * Storage, credentials, agent, auth, mcp, and prompts are still

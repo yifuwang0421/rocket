@@ -52,16 +52,28 @@ module.exports = {
     ]
 
     const filename = context.filename || context.getFilename()
-    const basename = filename.split('/').pop() || ''
+    const normalizedFilename = filename.replace(/\\/g, '/')
+    const basename = normalizedFilename.split('/').pop() || ''
 
-    // Allow in specific files
-    if (allowedFiles.includes(basename)) {
+    // Direct state assertions are valid in tests, and the implementation
+    // files below intentionally own authentication state transitions.
+    if (
+      allowedFiles.includes(basename)
+      || normalizedFilename.includes('/__tests__/')
+      || basename.endsWith('.test.ts')
+    ) {
       return {}
     }
 
     return {
       // Match: .config.isAuthenticated access
       MemberExpression(node) {
+        // State transitions assign this field directly; the rule only guards
+        // read-time usability checks.
+        if (node.parent?.type === 'AssignmentExpression' && node.parent.left === node) {
+          return
+        }
+
         // Check if property is 'isAuthenticated'
         if (
           node.property.type === 'Identifier' &&

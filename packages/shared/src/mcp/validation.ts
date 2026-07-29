@@ -10,6 +10,8 @@ import { CraftMcpClient } from './client.js';
 import { debug } from '../utils/debug.ts';
 import { normalizeMcpUrl } from '../sources/server-builder.ts';
 import type { McpTransport } from '../sources/types.ts';
+import { existsSync } from 'node:fs';
+import { isAbsolute } from 'node:path';
 
 export interface InvalidProperty {
   toolName: string;
@@ -316,6 +318,21 @@ export async function validateStdioMcpConnection(
 ): Promise<McpValidationResult> {
   const { command, args = [], env = {}, timeout = 30000 } = config;
 
+  // The MCP SDK launches stdio commands through cmd.exe on Windows. A missing
+  // path then surfaces as a localized shell message plus "Connection closed"
+  // instead of ENOENT, which prevents a stable user-facing diagnostic.
+  // Path-shaped commands can be validated deterministically before spawning.
+  const commandIsPath = isAbsolute(command)
+    || command.includes('/')
+    || command.includes('\\');
+  if (commandIsPath && !existsSync(command)) {
+    return {
+      success: false,
+      error: `Command not found: "${command}". Install the required dependency and try again.`,
+      errorType: 'failed',
+    };
+  }
+
   // Two-watchdog connect phase. Most "MCP doesn't work" failures never
   // complete the `initialize` handshake, so we want fast diagnostics — but
   // legitimate cold-cache installs (`uv tool run`, `npx`, `pipx`) can take
@@ -409,7 +426,7 @@ export async function validateStdioMcpConnection(
     });
 
     client = new Client(
-      { name: 'craft-agent-validator', version: '1.0.0' },
+      { name: 'rocket-validator', version: '1.0.0' },
       { capabilities: {} }
     );
 

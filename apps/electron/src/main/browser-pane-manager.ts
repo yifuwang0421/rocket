@@ -8,7 +8,7 @@
 
 import { join, parse as parsePath } from 'path'
 import { existsSync, mkdirSync } from 'fs'
-import { validateFilePath, getWorkspaceAllowedDirs } from '@craft-agent/server-core/handlers'
+import { validateFilePath, getWorkspaceAllowedDirs } from '@rocket/server-core/handlers'
 import { BrowserView, BrowserWindow, app, ipcMain, nativeTheme, session, shell, type Session as ElectronSession } from 'electron'
 import { mainLog } from './logger'
 import type { WindowManager } from './window-manager'
@@ -18,17 +18,17 @@ import {
   type BrowserEmptyStateLaunchResult,
   type BrowserInstanceInfo,
 } from '../shared/types'
-import { DEFAULT_THEME, loadAppTheme, getAllowRemoteEvaluate } from '@craft-agent/shared/config'
-import { CodedError } from '@craft-agent/shared/protocol'
+import { DEFAULT_THEME, loadAppTheme, getAllowRemoteEvaluate } from '@rocket/shared/config'
+import { CodedError } from '@rocket/shared/protocol'
 import { getBrowserLiveFxCornerRadii } from '../shared/browser-live-fx'
 import type {
   IBrowserPaneManager,
   BrowserInstanceSnapshot,
-} from '@craft-agent/server-core/handlers'
+} from '@rocket/server-core/handlers'
 import type {
   BrowserCapabilityRequest,
   ScreenshotResultWire,
-} from '@craft-agent/server-core/transport'
+} from '@rocket/server-core/transport'
 
 export type { BrowserInstanceInfo }
 
@@ -51,7 +51,7 @@ const THEME_COLOR_NULL_SENTINEL = '__NULL__'
 const THEME_OBSERVER_MIN_INTERVAL_MS = 120
 const EARLY_THEME_EXTRACTION_DELAY_MS = 100
 const BROWSER_EMPTY_STATE_PAGE = 'browser-empty-state.html'
-const CRAFT_DEEPLINK_SCHEME_PREFIX = `${process.env.CRAFT_DEEPLINK_SCHEME || 'craftagents'}://`
+const ROCKET_DEEPLINK_SCHEME_PREFIX = `${process.env.ROCKET_DEEPLINK_SCHEME || 'rocket'}://`
 
 const THEME_COLOR_EXTRACTOR_FN = String.raw`
 () => {
@@ -377,7 +377,7 @@ export class BrowserPaneManager implements IBrowserPaneManager {
     this.setupSessionObservers(ses)
 
     // Match background to current OS theme to prevent black/white flash on open
-    const bgColor = nativeTheme.shouldUseDarkColors ? '#2b292e' : '#fafafb'
+    const bgColor = nativeTheme.shouldUseDarkColors ? '#0a1628' : '#f7f9fc'
 
     const window = new BrowserWindow({
       width: 1200,
@@ -399,7 +399,7 @@ export class BrowserPaneManager implements IBrowserPaneManager {
 
     const toolbarView = new BrowserView({
       webPreferences: {
-        preload: join(__dirname, 'browser-toolbar-preload.cjs'),
+        preload: join(__dirname, '..', '..', 'dist', 'browser-toolbar-preload.cjs'),
         partition: SESSION_PARTITION,
         session: ses,
         contextIsolation: true,
@@ -655,7 +655,7 @@ export class BrowserPaneManager implements IBrowserPaneManager {
       normalizedPath = `workspace/${encodeURIComponent(workspaceId)}/${normalizedPath}`
     }
 
-    return `${CRAFT_DEEPLINK_SCHEME_PREFIX}${normalizedPath}${routeQuery ? `?${routeQuery}` : ''}`
+    return `${ROCKET_DEEPLINK_SCHEME_PREFIX}${normalizedPath}${routeQuery ? `?${routeQuery}` : ''}`
   }
 
   private async triggerEmptyStateRouteLaunch(
@@ -1607,7 +1607,7 @@ export class BrowserPaneManager implements IBrowserPaneManager {
     return instance.downloads.slice(-limit)
   }
 
-  // validateUploadFilePath removed — uses shared validateFilePath from @craft-agent/server-core/handlers
+  // validateUploadFilePath removed — uses shared validateFilePath from @rocket/server-core/handlers
 
   async uploadFile(id: string, ref: string, filePaths: string[]): Promise<ElementGeometry> {
     const instance = this.requireAliveInstance(id)
@@ -2102,13 +2102,21 @@ export class BrowserPaneManager implements IBrowserPaneManager {
       return
     }
 
+    const cleanup = (label: string, action: () => void): void => {
+      try {
+        action()
+      } catch (error) {
+        mainLog.warn(`[browser-pane] finalize cleanup failed id=${instance.id} step=${label} error=${error instanceof Error ? error.message : String(error)}`)
+      }
+    }
+
     this.destroyingIds.delete(instance.id)
-    this.closePopupsForParent(instance.id, 'parent_destroy')
-    this.applyAgentControlLock(instance, false)
-    this.updateNativeOverlayState(instance)
-    instance.cdp.detach()
+    cleanup('closePopupsForParent', () => this.closePopupsForParent(instance.id, 'parent_destroy'))
+    cleanup('applyAgentControlLock', () => this.applyAgentControlLock(instance, false))
+    cleanup('updateNativeOverlayState', () => this.updateNativeOverlayState(instance))
+    cleanup('cdp.detach', () => instance.cdp.detach())
     this.instances.delete(instance.id)
-    this.removedCallback?.(instance.id)
+    cleanup('removedCallback', () => this.removedCallback?.(instance.id))
     mainLog.info(`[browser-pane] Destroyed instance: ${instance.id} (${source})`)
   }
 
@@ -2160,11 +2168,11 @@ export class BrowserPaneManager implements IBrowserPaneManager {
       return
     }
 
-    await instance.pageView.webContents.loadFile(join(__dirname, `renderer/${BROWSER_EMPTY_STATE_PAGE}`))
+    await instance.pageView.webContents.loadFile(join(__dirname, '..', '..', 'dist', 'renderer', BROWSER_EMPTY_STATE_PAGE))
   }
 
   private async handleDeepLinkUrl(url: string): Promise<void> {
-    if (!url.startsWith(CRAFT_DEEPLINK_SCHEME_PREFIX)) return
+    if (!url.startsWith(ROCKET_DEEPLINK_SCHEME_PREFIX)) return
 
     try {
       if (!this.windowManager) {
@@ -2234,7 +2242,7 @@ export class BrowserPaneManager implements IBrowserPaneManager {
           await instance.toolbarView.webContents.loadURL(`${VITE_DEV_SERVER_URL}/browser-toolbar.html?${query}`)
         } else {
           await instance.toolbarView.webContents.loadFile(
-            join(__dirname, 'renderer/browser-toolbar.html'),
+            join(__dirname, '..', '..', 'dist', 'renderer', 'browser-toolbar.html'),
             { query: { instanceId: instance.id } },
           )
         }
@@ -2269,8 +2277,8 @@ export class BrowserPaneManager implements IBrowserPaneManager {
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Browser Toolbar Error</title>
     <style>
-      html, body { margin: 0; padding: 0; height: 100%; font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #fafafb; color: #1f2937; }
-      @media (prefers-color-scheme: dark) { html, body { background: #2b292e; color: #e5e7eb; } }
+      html, body { margin: 0; padding: 0; height: 100%; font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f7f9fc; color: #132238; }
+      @media (prefers-color-scheme: dark) { html, body { background: #0a1628; color: #edf4ff; } }
       .wrap { height: 100%; display: flex; align-items: center; justify-content: center; }
       .card { max-width: 640px; margin: 0 20px; padding: 14px 16px; border-radius: 10px; background: rgba(127,127,127,0.12); font-size: 12px; line-height: 1.45; }
       .title { font-weight: 600; margin-bottom: 6px; }
@@ -2889,7 +2897,7 @@ export class BrowserPaneManager implements IBrowserPaneManager {
         const extractThemeColor = ${THEME_COLOR_EXTRACTOR_FN};
 
         const w = window;
-        const previousCleanup = w.__CRAFT_THEME_OBSERVER_CLEANUP__;
+        const previousCleanup = w.__ROCKET_THEME_OBSERVER_CLEANUP__;
         if (typeof previousCleanup === 'function') {
           try { previousCleanup(); } catch {}
         }
@@ -2975,7 +2983,7 @@ export class BrowserPaneManager implements IBrowserPaneManager {
         if (typeof mql.addEventListener === 'function') mql.addEventListener('change', onSchemeChange);
         else if (typeof mql.addListener === 'function') mql.addListener(onSchemeChange);
 
-        w.__CRAFT_THEME_OBSERVER_CLEANUP__ = () => {
+        w.__ROCKET_THEME_OBSERVER_CLEANUP__ = () => {
           headObserver.disconnect();
           rootObserver.disconnect();
           w.removeEventListener('scroll', onScroll);
@@ -3265,7 +3273,6 @@ export class BrowserPaneManager implements IBrowserPaneManager {
     ])
 
     if (typeof ses.setPermissionCheckHandler === 'function') {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       ses.setPermissionCheckHandler((_webContents, permission: string, requestingOrigin: string, _details: any) => {
         const allowed = allow.has(permission)
         if (!allowed) {
@@ -3276,7 +3283,6 @@ export class BrowserPaneManager implements IBrowserPaneManager {
     }
 
     if (typeof ses.setPermissionRequestHandler === 'function') {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       ses.setPermissionRequestHandler((_webContents, permission: string, callback: (allow: boolean) => void, details: any) => {
         const allowed = allow.has(permission)
         if (!allowed) {
@@ -3499,7 +3505,7 @@ export class BrowserPaneManager implements IBrowserPaneManager {
     })
 
     pageWc.on('will-navigate', (event, url) => {
-      if (url.startsWith(CRAFT_DEEPLINK_SCHEME_PREFIX)) {
+      if (url.startsWith(ROCKET_DEEPLINK_SCHEME_PREFIX)) {
         event.preventDefault()
         void this.handleDeepLinkUrl(url)
       }
@@ -3515,7 +3521,7 @@ export class BrowserPaneManager implements IBrowserPaneManager {
         `[browser-pane] window-open requested id=${instance.id} url=${details.url} disposition=${details.disposition ?? 'unknown'} frameName=${details.frameName || 'none'}`,
       )
 
-      if (details.url.startsWith(CRAFT_DEEPLINK_SCHEME_PREFIX)) {
+      if (details.url.startsWith(ROCKET_DEEPLINK_SCHEME_PREFIX)) {
         void this.handleDeepLinkUrl(details.url)
         return { action: 'deny' }
       }

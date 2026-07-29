@@ -56,7 +56,7 @@ function getBuildDefines(): string[] {
     "MICROSOFT_OAUTH_CLIENT_ID",
     "MICROSOFT_OAUTH_CLIENT_SECRET",
     "SENTRY_ELECTRON_INGEST_URL",
-    "CRAFT_DEV_RUNTIME",
+    "ROCKET_DEV_RUNTIME",
   ];
 
   return definedVars.map((varName) => {
@@ -285,7 +285,7 @@ async function buildWhatsAppWorker(): Promise<void> {
       `--outfile=${WA_WORKER_OUTPUT}`,
       "--external:electron",
       // Baileys' runtime-optional features — wrapped in try/catch at the
-      // call site and not used by Craft Agent (we send text + documents, no
+      // call site and not used by Rocket (we send text + documents, no
       // link previews, no inline image processing, no terminal QR).
       "--external:link-preview-js",
       "--external:qrcode-terminal",
@@ -336,31 +336,16 @@ async function main(): Promise<void> {
 
   const buildDefines = getBuildDefines();
 
-  console.log("🔨 Building main process...");
-
   const proc = spawn({
     cmd: [
-      "bun", "run", "esbuild",
+      "bun", "build",
       "apps/electron/src/main/index.ts",
-      "--bundle",
-      "--platform=node",
-      "--format=cjs",
-      "--outfile=apps/electron/dist/main.cjs",
-      "--external:electron",
-      // Claude Agent SDK is pure ESM (sdk.mjs) and calls `createRequire(import.meta.url)`
-      // at module init. esbuild's CJS bundling leaves the synthesized `import_meta.url`
-      // undefined for inner ESM modules, which throws ERR_INVALID_ARG_VALUE on load.
-      // Externalize so Node loads the SDK natively as ESM (with a real import.meta.url).
-      // Electron 39 ships Node 22.x which supports require() of ESM without TLA, so the
-      // bundled main.cjs's `require('@anthropic-ai/claude-agent-sdk')` works.
-      "--external:@anthropic-ai/claude-agent-sdk",
-      // Replace grammY's bundled polyfills (node-fetch@2 + abort-controller@3)
-      // with native Node globals. esbuild otherwise renames the polyfill's
-      // `class AbortSignal` to `_AbortSignal` to dodge collision with the
-      // global, which then breaks node-fetch@2's `constructor.name` check and
-      // fails every Telegram API call with a TypeError.
-      "--alias:node-fetch=./apps/electron/src/main/shims/node-fetch.cjs",
-      "--alias:abort-controller=./apps/electron/src/main/shims/abort-controller.cjs",
+      "--target", "node",
+      "--format", "cjs",
+      "--outfile", "apps/electron/dist/main.cjs",
+      "--external", "electron",
+      "--external", "@sentry/electron",
+      "--external", "electron-updater",
       ...buildDefines,
     ],
     cwd: ROOT_DIR,

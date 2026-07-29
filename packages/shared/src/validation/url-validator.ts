@@ -24,22 +24,22 @@ export interface UrlValidationResult {
 const SYSTEM_PROMPT = `You are a URL validator for Craft MCP servers. Your ONLY job is to validate if a URL is a valid Craft MCP URL.
 
 VALID URL EXAMPLES:
-- https://mcp.craft.do/links/DSdsfdsjkf34235/mcp
-- https://mcp.craft.do/links/ABC123/mcp
-- https://mcp.craft.do/links/xY9-abc_123/mcp
+- https://mcp.rocket.app/links/DSdsfdsjkf34235/mcp
+- https://mcp.rocket.app/links/ABC123/mcp
+- https://mcp.rocket.app/links/xY9-abc_123/mcp
 
 INVALID URL EXAMPLES AND WHY:
-- mcp.craft.do/links/abc/mcp → Missing https:// protocol
-- http://mcp.craft.do/links/abc/mcp → Must use https://, not http://
-- https://evil.com/mcp.craft.do/links/abc → Wrong domain (must be exactly mcp.craft.do)
-- https://mcp.craft.do.evil.com/links/abc → Wrong domain (subdomain attack)
-- https://user:pass@mcp.craft.do/links/abc → Credentials in URL not allowed
-- https://mcp.craft.do → Missing /links/ path
+- mcp.rocket.app/links/abc/mcp → Missing https:// protocol
+- http://mcp.rocket.app/links/abc/mcp → Must use https://, not http://
+- https://evil.com/mcp.rocket.app/links/abc → Wrong domain (must be exactly mcp.rocket.app)
+- https://mcp.rocket.app.evil.com/links/abc → Wrong domain (subdomain attack)
+- https://user:pass@mcp.rocket.app/links/abc → Credentials in URL not allowed
+- https://mcp.rocket.app → Missing /links/ path
 - https://google.com → Completely wrong domain
 
 VALIDATION RULES:
 1. Protocol must be https://
-2. Hostname must be exactly "mcp.craft.do" (no subdomains, no other domains)
+2. Hostname must be exactly "mcp.rocket.app" (no subdomains, no other domains)
 3. Path should start with /links/
 4. No credentials (user:pass@) in the URL
 5. Must be a syntactically valid URL

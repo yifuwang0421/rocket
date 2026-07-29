@@ -1,2 +1,2 @@
 @echo off
-"%CRAFT_UV%" run --python 3.12 "%CRAFT_SCRIPTS%\markitdown_cli.py" %*
+"%ROCKET_UV%" run --python 3.12 "%ROCKET_SCRIPTS%\markitdown_cli.py" %*

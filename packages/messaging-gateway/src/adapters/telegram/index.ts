@@ -34,7 +34,7 @@ export type TelegramChatInfo =
 
 /**
  * Hard cap for downloaded attachment size. Matches `MAX_FILE_SIZE` in
- * `@craft-agent/shared/utils/files` — files larger than this would be
+ * `@rocket/shared/utils/files` — files larger than this would be
  * rejected by `readFileAttachment` anyway, so we fail fast in the adapter
  * with a user-visible reply instead of silently dropping.
  */
@@ -593,7 +593,7 @@ export class TelegramAdapter implements PlatformAdapter {
 
     const localPath = join(
       tmpdir(),
-      `craft-agent-messaging-${randomBytes(8).toString('hex')}${ext}`,
+      `rocket-messaging-${randomBytes(8).toString('hex')}${ext}`,
     )
     writeFileSync(localPath, buf)
     return { localPath, fileName, fileSize: buf.byteLength }

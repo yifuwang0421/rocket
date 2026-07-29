@@ -13,6 +13,7 @@ const deletedIds: string[] = []
 let mockedProvider: 'anthropic' | 'pi' = 'anthropic'
 
 // Partial-mock baseline: import real modules via file paths (avoids recursive mock imports)
+const actualSharedConfigModule = await import('../../../../../packages/shared/src/config/index.ts')
 const actualSharedAgentModule = await import('../../../../../packages/shared/src/agent/index.ts')
 const actualSharedAgentBackendModule = await import('../../../../../packages/shared/src/agent/backend/index.ts')
 
@@ -56,7 +57,8 @@ mock.module('../logger', () => {
   }
 })
 
-mock.module('@craft-agent/shared/config', () => ({
+mock.module('@rocket/shared/config', () => ({
+  ...actualSharedConfigModule,
   getWorkspaceByNameOrId: (id: string) => (id === workspace.id ? workspace : null),
   getWorkspaces: () => [workspace],
   loadConfigDefaults: () => ({
@@ -85,6 +87,8 @@ mock.module('@craft-agent/shared/config', () => ({
   DEFAULT_THEME: { mode: 'system' },
   getDefaultModelsForConnection: () => ({ default: 'claude-sonnet-4-20250514', mini: 'claude-haiku-4-5-20251001' }),
   getDefaultModelForConnection: () => 'claude-sonnet-4-20250514',
+  defaultMidStreamBehavior: () => 'queue',
+  resolveMidStreamBehavior: () => 'queue',
   setGitBashPath: () => {},
   clearGitBashPath: () => {},
   setActiveWorkspace: () => {},
@@ -109,7 +113,7 @@ mock.module('@craft-agent/shared/config', () => ({
   isAnthropicProvider: () => true,
 }))
 
-mock.module('@craft-agent/shared/workspaces', () => ({
+mock.module('@rocket/shared/workspaces', () => ({
   loadWorkspaceConfig: () => ({
     defaults: {
       permissionMode: 'ask',
@@ -119,7 +123,7 @@ mock.module('@craft-agent/shared/workspaces', () => ({
   }),
 }))
 
-mock.module('@craft-agent/shared/agent', () => ({
+mock.module('@rocket/shared/agent', () => ({
   ...actualSharedAgentModule,
   setPermissionMode: () => {},
   getPermissionModeDiagnostics: () => ({ mode: 'ask', source: 'test' }),
@@ -135,7 +139,7 @@ mock.module('@craft-agent/shared/agent', () => ({
   normalizeCanonicalBrowserToolName: (name: string) => name,
 }))
 
-mock.module('@craft-agent/shared/agent/backend', () => ({
+mock.module('@rocket/shared/agent/backend', () => ({
   ...actualSharedAgentBackendModule,
   resolveSessionConnection: () => null,
   createBackendFromConnection: () => {
@@ -163,7 +167,7 @@ mock.module('@craft-agent/shared/agent/backend', () => ({
   validateStoredBackendConnection: async () => ({ success: false, error: 'stub' }),
 }))
 
-mock.module('@craft-agent/shared/sources', () => ({
+mock.module('@rocket/shared/sources', () => ({
   loadWorkspaceSources: () => [],
   loadAllSources: () => [],
   getSourcesBySlugs: () => [],
@@ -184,7 +188,7 @@ mock.module('@craft-agent/shared/sources', () => ({
   API_OAUTH_PROVIDERS: [],
 }))
 
-mock.module('@craft-agent/shared/automations', () => ({
+mock.module('@rocket/shared/automations', () => ({
   AutomationSystem: class AutomationSystem {
     constructor(..._args: unknown[]) {}
     setInitialSessionMetadata() {}
@@ -198,7 +202,7 @@ mock.module('@craft-agent/shared/automations', () => ({
   AUTOMATIONS_HISTORY_FILE: 'automations.history.jsonl',
 }))
 
-mock.module('@craft-agent/shared/sessions', () => ({
+mock.module('@rocket/shared/sessions', () => ({
   listSessions: () => [],
   loadSession: (_root: string, id: string) => storedById.get(id) ?? null,
   saveSession: async (session: any) => {
@@ -258,7 +262,7 @@ mock.module('@craft-agent/shared/sessions', () => ({
   validateSessionId: () => true,
 }))
 
-const { SessionManager } = await import('@craft-agent/server-core/sessions')
+const { SessionManager } = await import('@rocket/server-core/sessions')
 
 describe('session branch rollback on preflight failure', () => {
   beforeEach(() => {

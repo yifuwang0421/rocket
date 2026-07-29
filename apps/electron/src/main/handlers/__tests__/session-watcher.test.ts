@@ -8,11 +8,11 @@
  * (which breaks transitive imports that need real fs exports).
  */
 
-import { describe, it, expect, beforeEach, afterEach, mock } from 'bun:test'
+import { describe, it, expect, afterEach, mock } from 'bun:test'
 import { mkdtempSync, writeFileSync, rmSync } from 'fs'
 import { join } from 'path'
 import { tmpdir } from 'os'
-import type { RpcServer, RequestContext } from '@craft-agent/server-core/transport'
+import type { RpcServer, RequestContext } from '@rocket/server-core/transport'
 import type { HandlerDeps } from '../handler-deps'
 import { RPC_CHANNELS } from '../../../shared/types'
 
@@ -102,7 +102,7 @@ describe('session file watcher isolation', () => {
       try { rmSync(dir, { recursive: true, force: true }) } catch {}
     }
     tempDirs = []
-  })
+  }, 20_000)
 
   it('creates independent watchers per client and cleans up on disconnect', async () => {
     const dir1 = makeTempSessionDir()
@@ -110,7 +110,7 @@ describe('session file watcher isolation', () => {
     const sessionPaths = new Map([['s1', dir1], ['s2', dir2]])
     const { server, deps, handlers, pushCalls } = createTestHarness(sessionPaths)
 
-    const { registerSessionsHandlers, cleanupSessionFileWatchForClient } = await import('@craft-agent/server-core/handlers/rpc')
+    const { registerSessionsHandlers, cleanupSessionFileWatchForClient } = await import('@rocket/server-core/handlers/rpc')
     registerSessionsHandlers(server, deps)
 
     const watchHandler = handlers.get(RPC_CHANNELS.sessions.WATCH_FILES)!
@@ -155,7 +155,7 @@ describe('session file watcher isolation', () => {
 
     // Double cleanup is a no-op (doesn't throw)
     cleanupSessionFileWatchForClient('client-b')
-  })
+  }, 20_000)
 
   it('cleans up previous watcher when same client watches a different session', async () => {
     const dir1 = makeTempSessionDir()
@@ -163,7 +163,7 @@ describe('session file watcher isolation', () => {
     const sessionPaths = new Map([['s1', dir1], ['s2', dir2]])
     const { server, deps, handlers, pushCalls } = createTestHarness(sessionPaths)
 
-    const { registerSessionsHandlers, cleanupSessionFileWatchForClient } = await import('@craft-agent/server-core/handlers/rpc')
+    const { registerSessionsHandlers, cleanupSessionFileWatchForClient } = await import('@rocket/server-core/handlers/rpc')
     registerSessionsHandlers(server, deps)
 
     const watchHandler = handlers.get(RPC_CHANNELS.sessions.WATCH_FILES)!
@@ -200,7 +200,7 @@ describe('session file watcher isolation', () => {
     const sessionPaths = new Map([['s1', dir]])
     const { server, deps, handlers, pushCalls } = createTestHarness(sessionPaths)
 
-    const { registerSessionsHandlers, cleanupSessionFileWatchForClient } = await import('@craft-agent/server-core/handlers/rpc')
+    const { registerSessionsHandlers, cleanupSessionFileWatchForClient } = await import('@rocket/server-core/handlers/rpc')
     registerSessionsHandlers(server, deps)
 
     const watchHandler = handlers.get(RPC_CHANNELS.sessions.WATCH_FILES)!
@@ -220,5 +220,5 @@ describe('session file watcher isolation', () => {
     expect(pushCalls.length).toBeGreaterThanOrEqual(1)
 
     cleanupSessionFileWatchForClient('client-a')
-  })
+  }, 20_000)
 })

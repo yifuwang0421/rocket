@@ -2,9 +2,8 @@
 
 This guide explains how to configure custom permission rules for Explore mode.
 
-> **CLI-first workflow (recommended):** Use `craft-agent permission ...` commands instead of editing JSON directly.
-> - `craft-agent permission --help`
-> - Canonical command reference: [craft-cli.md](./craft-cli.md)
+> The P0 Rocket CLI is a server client; it does not manage permissions. Use
+> the in-app controls or edit and validate the JSON rules described below.
 
 ## Overview
 
@@ -12,8 +11,8 @@ Explore mode is a read-only mode that blocks potentially destructive operations.
 Custom permission rules let you allow specific operations that would otherwise be blocked.
 
 Permission files are located at:
-- Workspace: `~/.craft-agent/workspaces/{slug}/permissions.json`
-- Source: `~/.craft-agent/workspaces/{slug}/sources/{source}/permissions.json`
+- Workspace: `~/.rocket/workspaces/{slug}/permissions.json`
+- Source: `~/.rocket/workspaces/{slug}/sources/{source}/permissions.json`
 
 ## Auto-Scoping for Source Permissions
 
@@ -50,7 +49,7 @@ The system converts it to `mcp__<sourceSlug>__.*list` internally. This means:
   ],
   "allowedWritePaths": [
     "/tmp/**",
-    "~/.craft-agent/**"
+    "~/.rocket/**"
   ],
   "blockedCommandHints": [
     {
@@ -144,7 +143,7 @@ Glob patterns for directories where writes are allowed.
 {
   "allowedWritePaths": [
     "/tmp/**",
-    "~/.craft-agent/**",
+    "~/.rocket/**",
     "/path/to/project/output/**"
   ]
 }

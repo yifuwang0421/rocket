@@ -1,0 +1,4 @@
+#!/bin/sh
+ENTRY="${ROCKET_COMMANDS_ENTRY:-$ROCKET_CLI_ENTRY}"
+export ROCKET_CLI_JSON_ONLY="${ROCKET_CLI_JSON_ONLY:-1}"
+exec "${ROCKET_BUN:-bun}" run "$ENTRY" "$@"

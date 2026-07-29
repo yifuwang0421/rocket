@@ -5,8 +5,8 @@
  * Light mode is default, with optional dark mode overrides.
  *
  * Storage locations:
- * - App override:   ~/.craft-agent/theme.json
- * - Preset themes:  ~/.craft-agent/themes/*.json
+ * - App override:   ~/.rocket/theme.json
+ * - Preset themes:  ~/.rocket/themes/*.json
  */
 
 /**
@@ -230,8 +230,8 @@ export function themeToCSS(theme: ThemeOverrides, isDark: boolean = false): stri
  * that visually match the DEFAULT_THEME oklch colors.
  */
 export const BACKGROUND_HEX = {
-  light: '#faf9fb', // matches oklch(0.98 0.003 265)
-  dark: '#302f33', // matches oklch(0.2 0.005 270)
+  light: '#f7f9fc',
+  dark: '#0a1628',
 } as const;
 
 /**
@@ -246,16 +246,16 @@ export function getBackgroundColor(isDark: boolean): string {
  * Default theme values (matches current index.css)
  */
 export const DEFAULT_THEME: ThemeOverrides = {
-  background: 'oklch(0.98 0.003 265)',
-  foreground: 'oklch(0.185 0.01 270)',
-  accent: 'oklch(0.58 0.22 293)',
+  background: '#f7f9fc',
+  foreground: '#132238',
+  accent: '#1a3a6a',
   info: 'oklch(0.75 0.16 70)',
   success: 'oklch(0.55 0.17 145)',
   destructive: 'oklch(0.58 0.24 28)',
   dark: {
-    background: 'oklch(0.145 0.015 270)',
-    foreground: 'oklch(0.95 0.01 270)',
-    accent: 'oklch(0.65 0.22 293)',
+    background: '#0a1628',
+    foreground: '#edf4ff',
+    accent: '#5b8fd1',
     info: 'oklch(0.78 0.14 70)',
     success: 'oklch(0.60 0.17 145)',
     destructive: 'oklch(0.65 0.22 28)',

@@ -49,8 +49,8 @@ describe('preExecuteSpawnSession workingDirectory normalization', () => {
   });
 
   it('expands `~/foo` to an absolute path under home', async () => {
-    await agent.invokeSpawn({ prompt: 'hi', workingDirectory: '~/Documents/CraftAgents' });
-    expect(captured[0]?.workingDirectory).toBe(join(homedir(), 'Documents/CraftAgents'));
+    await agent.invokeSpawn({ prompt: 'hi', workingDirectory: '~/Documents/Rocket' });
+    expect(captured[0]?.workingDirectory).toBe(join(homedir(), 'Documents/Rocket'));
   });
 
   it('expands `${HOME}/foo`', async () => {
@@ -66,6 +66,11 @@ describe('preExecuteSpawnSession workingDirectory normalization', () => {
   it('leaves absolute paths unchanged (aside from normalization)', async () => {
     await agent.invokeSpawn({ prompt: 'hi', workingDirectory: '/tmp/abs/path' });
     expect(captured[0]?.workingDirectory).toBe('/tmp/abs/path');
+  });
+
+  it('preserves Windows absolute paths for remote sessions', async () => {
+    await agent.invokeSpawn({ prompt: 'hi', workingDirectory: String.raw`C:\work\rocket` });
+    expect(captured[0]?.workingDirectory).toBe(String.raw`C:\work\rocket`);
   });
 
   it('resolves relative paths against cwd', async () => {

@@ -48,37 +48,7 @@ function run(command: string, cwd: string): void {
   execSync(command, {
     cwd,
     stdio: 'inherit',
-    shell: true,
   });
-}
-
-/**
- * Run a shell command silently, ignoring errors
- */
-function runQuiet(command: string, cwd: string): void {
-  try {
-    execSync(command, {
-      cwd,
-      stdio: 'pipe',
-      shell: true,
-    });
-  } catch {
-    // Ignore errors
-  }
-}
-
-/**
- * Kill processes that might lock files
- */
-async function killLockingProcesses(): Promise<void> {
-  const processesToKill = ['node', 'npm', 'electron', 'electron-builder'];
-
-  for (const procName of processesToKill) {
-    runQuiet(`taskkill /F /IM ${procName}.exe 2>nul`, process.cwd());
-  }
-
-  // Give processes time to fully terminate
-  await sleep(2000);
 }
 
 /**
@@ -229,9 +199,6 @@ export async function packageWindows(config: BuildConfig): Promise<string> {
 
   console.log('Packaging app with electron-builder...');
 
-  // Kill any lingering processes first
-  await killLockingProcesses();
-
   const maxRetries = 3;
   let lastError: Error | null = null;
 
@@ -257,7 +224,6 @@ export async function packageWindows(config: BuildConfig): Promise<string> {
 
       if (attempt < maxRetries) {
         console.log('  Waiting 10 seconds before retry...');
-        await killLockingProcesses();
         await sleep(10000);
       }
     }

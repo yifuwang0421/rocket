@@ -1,19 +1,19 @@
-# @craft-agent/core
+# @rocket/core
 
-Shared TypeScript types and utilities for Craft Agent applications.
+Shared TypeScript types and utilities for Rocket applications.
 
 ## Installation
 
 ```bash
 # In a workspace package
-bun add @craft-agent/core
+bun add @rocket/core
 ```
 
 Or add to `package.json`:
 ```json
 {
   "dependencies": {
-    "@craft-agent/core": "workspace:*"
+    "@rocket/core": "workspace:*"
   }
 }
 ```
@@ -28,10 +28,10 @@ import type {
   Message,
   TokenUsage,
   AgentEvent,
-} from '@craft-agent/core';
+} from '@rocket/core';
 
 // Import utilities
-import { generateMessageId, debug } from '@craft-agent/core';
+import { generateMessageId, debug } from '@rocket/core';
 ```
 
 ## Exported Types
@@ -54,7 +54,7 @@ import { generateMessageId, debug } from '@craft-agent/core';
 - `MessageRole` - Message type enum
 - `ToolStatus` - Tool execution state
 - `TokenUsage` - Token counts and cost
-- `AgentEvent` - Events from CraftAgent
+- `AgentEvent` - Events from an Agent backend
 - `TypedError` - Structured error info
 - `Question` - AskUserQuestion format
 
@@ -98,4 +98,4 @@ The Claude Agent SDK also requires `@anthropic-ai/sdk` >= 0.93.0 at the app leve
 
 ## License
 
-MIT
+Apache-2.0

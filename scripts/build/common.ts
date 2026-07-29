@@ -152,7 +152,11 @@ export async function downloadBun(config: BuildConfig): Promise<void> {
 
     // Extract
     console.log('  Extracting...');
-    await $`unzip -o ${zipPath} -d ${tempDir}`.quiet();
+    if (platform === 'win32') {
+      await $`powershell -NoProfile -ExecutionPolicy Bypass -Command "Expand-Archive -LiteralPath '${zipPath}' -DestinationPath '${tempDir}' -Force"`;
+    } else {
+      await $`unzip -o ${zipPath} -d ${tempDir}`.quiet();
+    }
 
     // Copy binary
     const bunBinary = platform === 'win32' ? 'bun.exe' : 'bun';
@@ -277,6 +281,7 @@ export function cleanBuildArtifacts(config: BuildConfig): void {
   console.log('Cleaning previous builds...');
 
   const foldersToClean = [
+    join(electronDir, 'dist'),
     join(electronDir, 'vendor'),
     join(electronDir, 'node_modules', '@anthropic-ai'),
     join(electronDir, 'packages'),
@@ -588,7 +593,7 @@ export function buildMcpServers(config: BuildConfig): void {
 
   execSync(
     `bun build ${join(sessionDir, 'src', 'index.ts')} --outfile ${sessionOut} --target node --format cjs`,
-    { cwd: rootDir, stdio: 'inherit', shell: true }
+    { cwd: rootDir, stdio: 'inherit' }
   );
 
   if (!existsSync(sessionOut)) {
@@ -604,7 +609,7 @@ export function buildMcpServers(config: BuildConfig): void {
     mkdirSync(join(piDir, 'dist'), { recursive: true });
     execSync(
       `bun build ${join(piDir, 'src', 'index.ts')} --outdir ${join(piDir, 'dist')} --target bun --format esm --external koffi`,
-      { cwd: rootDir, stdio: 'inherit', shell: true }
+      { cwd: rootDir, stdio: 'inherit' }
     );
     if (!existsSync(piOut)) {
       throw new Error(`Pi agent server output not found at ${piOut}`);
@@ -625,7 +630,7 @@ export function buildWhatsAppWorker(config: BuildConfig): void {
 
   console.log('Building WhatsApp worker...');
 
-  execSync('bun run build:wa-worker', { cwd: rootDir, stdio: 'inherit', shell: true });
+  execSync('bun run build:wa-worker', { cwd: rootDir, stdio: 'inherit' });
 
   if (!existsSync(workerOut)) {
     throw new Error(`WhatsApp worker output not found at ${workerOut}`);
@@ -704,6 +709,7 @@ export async function uploadToS3(config: BuildConfig): Promise<void> {
   if (uploadLatest) flags.push('--latest');
   if (uploadScript) flags.push('--script');
 
+  await $`cd ${rootDir} && bun run scripts/release-check.ts --stage=publish`;
   await $`cd ${rootDir} && bun run scripts/upload.ts ${flags}`;
 
   console.log('Upload complete ✓');
@@ -736,10 +742,10 @@ export async function loadEnvFile(config: BuildConfig): Promise<void> {
 export function getArtifactName(platform: Platform, arch: Arch): string {
   switch (platform) {
     case 'darwin':
-      return `Craft-Agents-${arch}.dmg`;
+      return `Rocket-${arch}.dmg`;
     case 'win32':
-      return `Craft-Agents-${arch}.exe`;
+      return `Rocket-${arch}.exe`;
     case 'linux':
-      return `Craft-Agents-${arch}.AppImage`;
+      return `Rocket-${arch}.AppImage`;
   }
 }

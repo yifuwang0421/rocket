@@ -44,7 +44,7 @@ import { isMac } from "@/lib/platform"
 import { Button } from "@/components/ui/button"
 import { HeaderIconButton } from "@/components/ui/HeaderIconButton"
 import { Separator } from "@/components/ui/separator"
-import { Tooltip, TooltipTrigger, TooltipContent, DocumentFormattedMarkdownOverlay } from "@craft-agent/ui"
+import { Tooltip, TooltipTrigger, TooltipContent, DocumentFormattedMarkdownOverlay } from "@rocket/ui"
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -74,6 +74,7 @@ import { SessionList, type ChatGroupingMode } from "./SessionList"
 import { MainContentPanel } from "./MainContentPanel"
 import { BoardListToggle } from "./kanban/BoardListToggle"
 import { PanelStackContainer } from "./PanelStackContainer"
+import { ThreePanelLayout } from "./ThreePanelLayout"
 import { CompactSessionListFilter } from "./CompactSessionListFilter"
 import type { ChatDisplayHandle } from "./ChatDisplay"
 import { LeftSidebar } from "./LeftSidebar"
@@ -101,9 +102,9 @@ import { useContainerWidth } from "@/hooks/useContainerWidth"
 import { LabelIcon, LabelValueTypeIcon } from "@/components/ui/label-icon"
 import { filterSessionStatuses as filterLabelMenuStates } from "@/components/ui/label-menu"
 import { createLabelMenuItems, filterItems as filterLabelMenuItems, type LabelMenuItem } from "@/components/ui/label-menu-utils"
-import { buildLabelTree, getDescendantIds, getLabelDisplayName, flattenLabels, extractLabelId, findLabelById, sortLabelsForDisplay, matchesLabelFilter } from "@craft-agent/shared/labels"
-import type { LabelConfig, LabelTreeNode } from "@craft-agent/shared/labels"
-import { resolveEntityColor } from "@craft-agent/shared/colors"
+import { buildLabelTree, getDescendantIds, getLabelDisplayName, flattenLabels, extractLabelId, findLabelById, sortLabelsForDisplay, matchesLabelFilter } from "@rocket/shared/labels"
+import type { LabelConfig, LabelTreeNode } from "@rocket/shared/labels"
+import { resolveEntityColor } from "@rocket/shared/colors"
 import * as storage from "@/lib/local-storage"
 import { toast } from "sonner"
 import { navigate, routes } from "@/lib/navigate"
@@ -696,6 +697,9 @@ function AppShellContent({
     const entry = viewFiltersMap[sessionFilterKey]?.statuses ?? {}
     return new Map<SessionStatusId, FilterMode>(Object.entries(entry) as [SessionStatusId, FilterMode][])
   }, [viewFiltersMap, sessionFilterKey])
+
+  // Research layout toggle — switches between classic and three-panel layout
+  const isResearchLayout = true
 
   // Derive current view's label filter as a Map<string, FilterMode>
   const labelFilter = useMemo(() => {
@@ -2382,7 +2386,10 @@ function AppShellContent({
           isCompact={isAutoCompact}
         />
 
-      {/* === OUTER LAYOUT: Unified Panel Stack | Right Sidebar === */}
+      {/* === OUTER LAYOUT: Research layout or classic layout === */}
+      {isResearchLayout ? (
+        <ThreePanelLayout />
+      ) : (
       <div
         ref={shellRef}
         className="flex items-stretch relative"
@@ -3677,11 +3684,10 @@ function AppShellContent({
         )}
 
       </div>
+      )}
 
       {/* ============================================================================
        * CONTEXT MENU TRIGGERED EDIT POPOVERS
-       * ============================================================================
-       * These EditPopovers are opened programmatically from sidebar context menus.
        * They use controlled state (editPopoverOpen) and invisible anchors for positioning.
        * The anchor Y position is captured from the right-clicked item (editPopoverAnchorY ref)
        * so the popover appears near the triggering item rather than at a fixed location.

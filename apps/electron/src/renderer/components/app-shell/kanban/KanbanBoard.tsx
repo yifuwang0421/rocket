@@ -10,7 +10,7 @@ import {
   type DragEndEvent,
   type DragStartEvent,
 } from '@dnd-kit/core'
-import type { KanbanColumnDef } from '@craft-agent/shared/projects/types'
+import type { KanbanColumnDef } from '@rocket/shared/projects/types'
 import { SmartPointerSensor } from '@/components/ui/sortable-list'
 import type { ProjectColorTreatment } from '@/utils/project-colors'
 import type { SessionStatus } from '@/config/session-status-config'
@@ -201,7 +201,7 @@ export function KanbanBoard({
           gone (it re-renders into the target), so a "fly back" would be wrong. */}
       <DragOverlay dropAnimation={null} style={{ zIndex: 'var(--z-floating-menu, 400)' }}>
         {activeTask ? (
-          <div className="cursor-grabbing rounded-lg shadow-dragging" style={{ transform: 'scale(1.025)' }}>
+          <div className="cursor-grabbing rounded-lg shadow-strong" style={{ transform: 'scale(1.025)' }}>
             <TaskTile
               task={activeTask}
               project={activeTask.projectId ? projectsById.get(activeTask.projectId) : undefined}

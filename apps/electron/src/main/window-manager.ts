@@ -4,10 +4,18 @@ import { join, resolve, sep } from 'path'
 import { existsSync } from 'fs'
 import { release } from 'os'
 import { fileURLToPath } from 'url'
-import { getWorkspaceByNameOrId } from '@craft-agent/shared/config'
-import { classifyExternalUrl, formatBlockedUrlError } from '@craft-agent/shared/utils/url-safety'
+import { getWorkspaceByNameOrId } from '@rocket/shared/config'
+import { classifyExternalUrl, formatBlockedUrlError } from '@rocket/shared/utils/url-safety'
 import { RPC_CHANNELS, type WindowCloseRequestSource } from '../shared/types'
 import type { SavedWindow } from './window-state'
+
+// Renderer root — bun build preserves source __dirname (apps/electron/src/main/).
+// The built renderer is at __dirname/../../dist/renderer/.
+const RENDERER_ROOT = (() => {
+  const distPath = join(__dirname, '..', '..', 'dist', 'renderer')
+  const srcPath = join(__dirname, 'renderer')
+  return existsSync(join(distPath, 'index.html')) ? distPath : srcPath
+})()
 
 // Vite dev server URL for hot reload
 const VITE_DEV_SERVER_URL = process.env.VITE_DEV_SERVER_URL
@@ -57,7 +65,7 @@ export class WindowManager {
   private windows: Map<number, ManagedWindow> = new Map()  // webContents.id → ManagedWindow
   private focusedModeWindows: Set<number> = new Set()  // webContents.id of windows in focused mode
   private pendingCloseTimeouts: Map<number, NodeJS.Timeout> = new Map()  // Fallback timeouts for window close
-  private eventSink: ((channel: string, target: import('@craft-agent/shared/protocol').PushTarget, ...args: any[]) => void) | null = null
+  private eventSink: ((channel: string, target: import('@rocket/shared/protocol').PushTarget, ...args: any[]) => void) | null = null
   private clientResolver: ((wcId: number) => string | undefined) | null = null
   private keyboardCloseIntents: Set<number> = new Set()  // webContents.id flagged by Cmd/Ctrl+W before close
   private keyboardCloseIntentTimeouts: Map<number, NodeJS.Timeout> = new Map()  // Auto-clear stale keyboard-close intents
@@ -68,7 +76,7 @@ export class WindowManager {
    * instead of webContents.send. Called after server creation.
    */
   setRpcEventSink(
-    sink: (channel: string, target: import('@craft-agent/shared/protocol').PushTarget, ...args: any[]) => void,
+    sink: (channel: string, target: import('@rocket/shared/protocol').PushTarget, ...args: any[]) => void,
     resolver: (wcId: number) => string | undefined
   ): void {
     this.eventSink = sink
@@ -76,7 +84,7 @@ export class WindowManager {
   }
 
   /** Return current RPC event sink, if transport has been initialized. */
-  getRpcEventSink(): ((channel: string, target: import('@craft-agent/shared/protocol').PushTarget, ...args: any[]) => void) | null {
+  getRpcEventSink(): ((channel: string, target: import('@rocket/shared/protocol').PushTarget, ...args: any[]) => void) | null {
     return this.eventSink
   }
 
@@ -161,7 +169,7 @@ export class WindowManager {
 
   /**
    * Apply the window-title policy across all managed windows:
-   *   1 window  → app name ("Craft Agents") on the lone window
+   *   1 window  → app name ("Rocket") on the lone window
    *   ≥2 windows → workspace name on each window, app-name fallback when the
    *                workspace can't be resolved (e.g. onboarding window).
    *
@@ -194,6 +202,7 @@ export class WindowManager {
    */
   createWindow(options: CreateWindowOptions): BrowserWindow {
     const { workspaceId, focused = false, initialDeepLink, restoreUrl } = options
+  console.error(`[CREATE_WINDOW] workspaceId=${workspaceId}, focused=${focused}, hasInitialDeepLink=${!!initialDeepLink}, hasRestoreUrl=${!!restoreUrl}`)
 
     // Load platform-specific app icon
     // In packaged app, resources are at dist/resources/ (same level as __dirname)
@@ -229,7 +238,7 @@ export class WindowManager {
       height: windowHeight,
       minWidth: 800,
       minHeight: 600,
-      show: false, // Don't show until ready-to-show event (faster perceived startup)
+      show: true,
       title: '',
       icon: iconExists ? iconPath : undefined,
       // macOS-specific: hidden title bar with inset traffic lights
@@ -254,7 +263,7 @@ export class WindowManager {
         autoHideMenuBar: true,
       }),
       webPreferences: {
-        preload: join(__dirname, 'bootstrap-preload.cjs'),
+        preload: join(__dirname, '..', '..', 'dist', 'bootstrap-preload.cjs'),
         contextIsolation: true,
         nodeIntegration: false,
         sandbox: false,
@@ -266,6 +275,12 @@ export class WindowManager {
     window.once('ready-to-show', () => {
       window.show()
     })
+    window.webContents.on('render-process-gone', (_e, d) =>
+      windowLog.error(`[renderer] crashed: ${d.reason}`)
+    )
+    window.webContents.on('console-message', (_e, l, msg) =>
+      windowLog.info(`[renderer:${l}] ${msg}`)
+    )
 
     // Open external links in default browser, but never hand known-dangerous
     // schemes directly to shell.openExternal. Markdown normal-clicks go through
@@ -299,7 +314,7 @@ export class WindowManager {
       })
     }
 
-    // The renderer's index.html ships with `<title>Craft Agents</title>`, so
+    // The renderer's index.html ships with `<title>Rocket</title>`, so
     // without this Electron auto-syncs every window's title back to that on
     // load — clobbering the workspace-name policy applied below. Suppress the
     // default sync so setTitle() calls from refreshWindowTitles() stick.
@@ -348,9 +363,9 @@ export class WindowManager {
           const savedUrl = new URL(restoreUrl)
           const query: Record<string, string> = {}
           savedUrl.searchParams.forEach((value, key) => { query[key] = value })
-          window.loadFile(join(__dirname, 'renderer/index.html'), { query })
+          window.loadFile(join(RENDERER_ROOT, 'index.html'), { query })
         } catch {
-          window.loadFile(join(__dirname, 'renderer/index.html'), { query: { workspaceId } })
+          window.loadFile(join(RENDERER_ROOT, 'index.html'), { query: { workspaceId } })
         }
       }
     } else {
@@ -364,7 +379,7 @@ export class WindowManager {
         const params = new URLSearchParams(query).toString()
         window.loadURL(`${VITE_DEV_SERVER_URL}?${params}`)
       } else {
-        window.loadFile(join(__dirname, 'renderer/index.html'), { query })
+        window.loadFile(join(RENDERER_ROOT, 'index.html'), { query })
       }
     }
 
@@ -383,7 +398,7 @@ export class WindowManager {
           window.loadURL(`${VITE_DEV_SERVER_URL}?${params}`)
         }, 1000)
       } else {
-        window.loadFile(join(__dirname, 'renderer/index.html'), { query: { workspaceId } })
+        window.loadFile(join(RENDERER_ROOT, 'index.html'), { query: { workspaceId } })
       }
     })
 

@@ -1,7 +1,7 @@
 /**
- * @craft-agent/messaging-gateway
+ * @rocket/messaging-gateway
  *
- * Messaging gateway for Craft Agent — Telegram & WhatsApp.
+ * Messaging gateway for Rocket — Telegram & WhatsApp.
  */
 
 export { MessagingGateway, type GatewayOptions } from './gateway'

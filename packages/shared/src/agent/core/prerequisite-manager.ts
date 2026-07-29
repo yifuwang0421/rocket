@@ -46,10 +46,10 @@ export interface PrerequisiteManagerConfig {
 // ============================================================
 
 /** Slugs that are exempt from prerequisite checks (internal sources) */
-const EXEMPT_SLUGS = new Set(['session', 'craft-agents-docs']);
+const EXEMPT_SLUGS = new Set(['session', 'rockets-docs']);
 
 /** Global browser tools docs path required before browser tool usage. */
-const BROWSER_TOOLS_DOC_PATH = resolve(join(homedir(), '.craft-agent', 'docs', 'browser-tools.md'));
+const BROWSER_TOOLS_DOC_PATH = resolve(join(homedir(), '.rocket', 'docs', 'browser-tools.md'));
 
 // ============================================================
 // Rules
@@ -100,8 +100,8 @@ const RULES: PrerequisiteRule[] = [
   // and skipped entirely when the built-in browser tool is disabled.
   {
     toolMatcher: (toolName: string) =>
-      getBrowserToolEnabled() &&
-      (toolName === 'browser_tool' || toolName === 'mcp__session__browser_tool'),
+      (toolName === 'browser_tool' || toolName === 'mcp__session__browser_tool') &&
+      getBrowserToolEnabled(),
     resolveRequiredPath: () => {
       return existsSync(BROWSER_TOOLS_DOC_PATH) ? BROWSER_TOOLS_DOC_PATH : null;
     },

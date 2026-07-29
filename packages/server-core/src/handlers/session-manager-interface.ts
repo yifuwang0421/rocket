@@ -6,11 +6,11 @@
  * satisfy it at runtime.
  */
 
-import type { Workspace, WorkspaceInfo, ActiveSessionInfo } from '@craft-agent/core/types'
-import type { StoredAttachment, AnnotationV1 } from '@craft-agent/core/types'
-import type { PermissionMode } from '@craft-agent/shared/agent/mode-types'
-import type { ThinkingLevel } from '@craft-agent/shared/agent/thinking-levels'
-import type { AuthResult } from '@craft-agent/shared/agent'
+import type { Workspace, WorkspaceInfo, ActiveSessionInfo } from '@rocket/core/types'
+import type { StoredAttachment, AnnotationV1 } from '@rocket/core/types'
+import type { PermissionMode } from '@rocket/shared/agent/mode-types'
+import type { ThinkingLevel } from '@rocket/shared/agent/thinking-levels'
+import type { AuthResult } from '@rocket/shared/agent'
 import type {
   Session,
   SessionStatus,
@@ -22,8 +22,8 @@ import type {
   PermissionModeState,
   UnreadSummary,
   ShareResult,
-} from '@craft-agent/shared/protocol'
-import type { SessionBundle, DispatchMode } from '@craft-agent/shared/sessions'
+} from '@rocket/shared/protocol'
+import type { SessionBundle, DispatchMode } from '@rocket/shared/sessions'
 import type { EventSink } from '../transport'
 
 export interface ISessionManager {
@@ -203,7 +203,7 @@ export interface ISessionManager {
   exportRemoteSessionTransfer(
     sessionId: string,
     workspaceId: string,
-  ): Promise<import('@craft-agent/shared/protocol').RemoteSessionTransferPayload | null>
+  ): Promise<import('@rocket/shared/protocol').RemoteSessionTransferPayload | null>
 
   /**
    * Import a session bundle into a target workspace.
@@ -221,8 +221,8 @@ export interface ISessionManager {
    */
   importRemoteSessionTransfer(
     workspaceId: string,
-    payload: import('@craft-agent/shared/protocol').RemoteSessionTransferPayload,
-  ): Promise<import('@craft-agent/shared/protocol').ImportRemoteSessionTransferResult>
+    payload: import('@rocket/shared/protocol').RemoteSessionTransferPayload,
+  ): Promise<import('@rocket/shared/protocol').ImportRemoteSessionTransferResult>
 
   // ---------------------------------------------------------------------------
   // Utilities
@@ -313,7 +313,7 @@ export interface ExecutePromptAutomationInput {
    * When `false`, `executePromptAutomation` returns as soon as the session is
    * created and the prompt is dispatched, instead of awaiting the whole turn.
    * Used by the automation **Test** action so a long run (tools / >30s output)
-   * doesn't trip the RPC client timeout (craft-agents-oss#943). The session
+   * doesn't trip the RPC client timeout (rockets-oss#943). The session
    * still streams live and run errors are logged. Defaults to awaiting completion.
    */
   waitForCompletion?: boolean

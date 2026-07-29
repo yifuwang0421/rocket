@@ -9,9 +9,9 @@
  * applies its own pre-binding access gate.)
  */
 
-import type { ISessionManager } from '@craft-agent/server-core/handlers'
-import { readFileAttachment } from '@craft-agent/shared/utils'
-import type { FileAttachment } from '@craft-agent/shared/protocol'
+import type { ISessionManager } from '@rocket/server-core/handlers'
+import { readFileAttachment } from '@rocket/shared/utils'
+import type { FileAttachment } from '@rocket/shared/protocol'
 import {
   evaluateBindingAccess,
   executeRejection,

@@ -1,16 +1,16 @@
 import type { ComponentEntry } from './types'
-import { CraftAgentsLogo } from '@/components/icons/CraftAgentsLogo'
-import { CraftAgentsSymbol } from '@/components/icons/CraftAgentsSymbol'
+import { RocketLogo } from '@/components/icons/RocketLogo'
+import { RocketSymbol } from '@/components/icons/RocketSymbol'
 import { PanelLeftRounded } from '@/components/icons/PanelLeftRounded'
 import { SquarePenRounded } from '@/components/icons/SquarePenRounded'
 
 export const iconComponents: ComponentEntry[] = [
   {
-    id: 'craft-agents-logo',
-    name: 'CraftAgentsLogo',
+    id: 'rockets-logo',
+    name: 'RocketLogo',
     category: 'Icons',
-    description: 'Full Craft Agents branding logo with text',
-    component: CraftAgentsLogo,
+    description: 'Full Rocket branding logo with text',
+    component: RocketLogo,
     props: [
       {
         name: 'className',
@@ -26,11 +26,11 @@ export const iconComponents: ComponentEntry[] = [
     ],
   },
   {
-    id: 'craft-agents-symbol',
-    name: 'CraftAgentsSymbol',
+    id: 'rockets-symbol',
+    name: 'RocketSymbol',
     category: 'Icons',
-    description: 'Craft Agents "E" pixel art symbol icon (brand color: #9570BE)',
-    component: CraftAgentsSymbol,
+    description: 'Rocket "E" pixel art symbol icon (brand color: #9570BE)',
+    component: RocketSymbol,
     props: [
       {
         name: 'className',

@@ -29,7 +29,7 @@
 @property --background {
   syntax: "<color>";
   inherits: true;
-  initial-value: oklch(0.98 0.003 265);
+  initial-value: #f7f9fc;
 }
 
 @property --foreground {
@@ -41,7 +41,7 @@
 @property --accent {
   syntax: "<color>";
   inherits: true;
-  initial-value: oklch(0.62 0.13 293);
+  initial-value: #1a3a6a;
 }
 
 @property --info {
@@ -63,12 +63,12 @@
 }
 
 /* =============================================================================
-   CRAFT AGENT THEME - 6 Color System
+   ROCKET THEME - 6 Color System
 
    Base colors:
    - background: Light/dark surface
    - foreground: Text and icons
-   - accent: Brand purple (highlights, Auto mode)
+   - accent: Rocket deep blue (highlights, Auto mode)
    - info: Amber (warnings, Ask mode)
    - success: Green (connected, checkmarks)
    - destructive: Red (errors, failed)
@@ -83,15 +83,15 @@
 /* Light Mode */
 :root {
   /* === 6 BASE COLORS === */
-  --background: oklch(0.98 0.003 265);
+  --background: #f7f9fc;
   --background-elevated: color-mix(in srgb, var(--foreground) 1.5%, var(--background));
-  --foreground: oklch(0.185 0.01 270);
+  --foreground: #132238;
   --foreground-dimmed: color-mix(in srgb, var(--foreground) 80%, var(--background)); /* unfocused panel text */
-  --foreground-rgb: 38, 36, 42;             /* RGB for shadow borders */
+  --foreground-rgb: 19, 34, 56;             /* RGB for shadow borders */
   --user-message-bubble: oklch(from var(--foreground) l c h / 0.05);
   --user-message-bubble-dimmed: oklch(from var(--foreground) l c h / 0.03);
-  --accent: oklch(0.62 0.13 293);           /* purple - brand, Auto mode */
-  --accent-rgb: 104, 78, 133;               /* darkened RGB for shadow-tinted (70% of accent) */
+  --accent: #1a3a6a;                         /* Rocket deep blue - brand, Auto mode */
+  --accent-rgb: 26, 58, 106;                 /* RGB for shadow-tinted */
   --info: oklch(0.75 0.16 70);              /* amber - warnings, Ask mode */
   --info-rgb: 180, 120, 40;                 /* RGB for shadow-tinted */
   --success: oklch(0.55 0.17 145);          /* green - connected, checkmarks */
@@ -250,15 +250,15 @@
 /* Dark Mode */
 .dark {
   /* === 6 BASE COLORS (must match DEFAULT_THEME.dark in theme.ts) === */
-  --background: oklch(0.145 0.015 270);
+  --background: #0a1628;
   --background-elevated: color-mix(in srgb, var(--foreground) 1.5%, var(--background));
-  --foreground: oklch(0.95 0.01 270);
+  --foreground: #edf4ff;
   --foreground-dimmed: color-mix(in srgb, var(--foreground) 80%, var(--background)); /* unfocused panel text */
-  --foreground-rgb: 237, 236, 240;           /* RGB for shadow borders */
+  --foreground-rgb: 237, 244, 255;           /* RGB for shadow borders */
   --user-message-bubble: oklch(from var(--foreground) l c h / 0.05);
   --user-message-bubble-dimmed: oklch(from var(--foreground) l c h / 0.03);
-  --accent: oklch(0.65 0.22 293);            /* brighter purple in dark */
-  --accent-rgb: 130, 75, 185;               /* darkened RGB for shadow-tinted (70% of accent) */
+  --accent: #5b8fd1;                          /* accessible Rocket blue in dark */
+  --accent-rgb: 91, 143, 209;                 /* RGB for shadow-tinted */
   --info: oklch(0.78 0.14 70);               /* amber */
   --info-rgb: 210, 155, 55;                  /* RGB for shadow-tinted */
   --success: oklch(0.60 0.17 145);           /* green */

@@ -11,7 +11,7 @@ const STORAGE_MODULE_PATH = pathToFileURL(join(import.meta.dir, '..', 'storage.t
  * Returns paths needed by tests plus a runner to call updateLlmConnection in a subprocess.
  */
 function setup(llmConnections: any[]) {
-  const configDir = mkdtempSync(join(tmpdir(), 'craft-agent-config-'))
+  const configDir = mkdtempSync(join(tmpdir(), 'rocket-config-'))
   const workspaceRoot = join(configDir, 'workspaces', 'my-workspace')
   mkdirSync(workspaceRoot, { recursive: true })
 
@@ -47,7 +47,7 @@ function setup(llmConnections: any[]) {
       '--eval',
       `import { updateLlmConnection } from '${STORAGE_MODULE_PATH}'; const ok = updateLlmConnection(${JSON.stringify(slug)}, ${updatesJson}); process.exit(ok ? 0 : 1);`,
     ], {
-      env: { ...process.env, CRAFT_CONFIG_DIR: configDir },
+      env: { ...process.env, ROCKET_CONFIG_DIR: configDir },
       stdout: 'pipe',
       stderr: 'pipe',
     })
@@ -119,7 +119,7 @@ describe('updateLlmConnection – customEndpoint', () => {
 describe('updateLlmConnection – Anthropic OAuth identity (issue #838)', () => {
   const identity = {
     oauthAccountUuid: 'acct-uuid-123',
-    oauthAccountEmail: 'gyula@craft.do',
+    oauthAccountEmail: 'gyula@rocket.app',
     oauthOrganizationUuid: 'org-uuid-456',
     oauthOrganizationName: 'Craft',
     oauthProfileVerifiedAt: 1_700_000_000_000,

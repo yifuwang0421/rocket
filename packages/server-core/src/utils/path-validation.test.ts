@@ -50,21 +50,21 @@ describe('validatePathFormat', () => {
 
 describe('isValidWorkingDirectory', () => {
   it('accepts an existing Unix directory', () => {
-    const dir = mkdtempSync(join(tmpdir(), 'craft-agent-path-validation-'))
+    const dir = mkdtempSync(join(tmpdir(), 'rocket-path-validation-'))
     try {
-      expect(isValidWorkingDirectory(dir, 'darwin')).toEqual({ valid: true })
+      expect(isValidWorkingDirectory(dir, process.platform)).toEqual({ valid: true })
     } finally {
       rmSync(dir, { recursive: true, force: true })
     }
   })
 
   it('rejects a file path', () => {
-    const dir = mkdtempSync(join(tmpdir(), 'craft-agent-path-validation-'))
+    const dir = mkdtempSync(join(tmpdir(), 'rocket-path-validation-'))
     const file = join(dir, 'file.txt')
     writeFileSync(file, 'x')
 
     try {
-      expect(isValidWorkingDirectory(file, 'darwin')).toEqual({
+      expect(isValidWorkingDirectory(file, process.platform)).toEqual({
         valid: false,
         reason: `Not a directory: ${file}`,
       })

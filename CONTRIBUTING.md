@@ -1,6 +1,6 @@
-# Contributing to Craft Agents
+# Contributing to Rocket
 
-Thank you for your interest in contributing to Craft Agents! This document provides guidelines and instructions for contributing.
+Thank you for your interest in contributing to Rocket.
 
 ## Getting Started
 
@@ -12,24 +12,18 @@ Thank you for your interest in contributing to Craft Agents! This document provi
 
 ### Development Setup
 
-1. Clone the repository:
-   ```bash
-   git clone https://github.com/lukilabs/craft-agents-oss.git
-   cd craft-agents-oss
-   ```
-
-2. Install dependencies:
+1. Install dependencies from the repository root:
    ```bash
    bun install
    ```
 
-3. Set up environment variables:
+2. Set up environment variables:
    ```bash
    cp .env.example .env
    # Edit .env with your credentials
    ```
 
-4. Run in development mode:
+3. Run in development mode:
    ```bash
    bun run electron:dev
    ```
@@ -93,14 +87,14 @@ How you tested these changes
 ## Project Structure
 
 ```
-craft-agents/
+rocket/
 ├── apps/
 │   ├── electron/    # Desktop GUI (primary interface)
 │   └── tui/         # Terminal CLI (deprecated)
 └── packages/
-    ├── core/        # @craft-agent/core - Shared types
-    ├── shared/      # @craft-agent/shared - Business logic
-    └── ui/          # @craft-agent/ui - React components
+    ├── core/        # @rocket/core - Shared types
+    ├── shared/      # @rocket/shared - Business logic
+    └── ui/          # @rocket/ui - React components
 ```
 
 ## Key Areas

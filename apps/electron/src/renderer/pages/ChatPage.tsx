@@ -488,7 +488,7 @@ const ChatPage = React.memo(function ChatPage({ sessionId }: ChatPageProps) {
   const handleOpenInNewWindow = React.useCallback(async () => {
     const route = routes.view.allSessions(sessionId)
     const separator = route.includes('?') ? '&' : '?'
-    const url = `craftagents://${route}${separator}window=focused`
+    const url = `rocket://${route}${separator}window=focused`
     try {
       await window.electronAPI?.openUrl(url)
     } catch (error) {
@@ -577,7 +577,7 @@ const ChatPage = React.memo(function ChatPage({ sessionId }: ChatPageProps) {
               <span className="flex-1">{t('sessionMenu.stopSharing')}</span>
             </StyledDropdownMenuItem>
             <StyledDropdownMenuSeparator />
-            <StyledDropdownMenuItem onClick={() => window.electronAPI.openUrl('https://agents.craft.do/docs/go-further/sharing')}>
+            <StyledDropdownMenuItem onClick={() => window.electronAPI.openUrl('https://agents.rocket.app/docs/go-further/sharing')}>
               <Info className="h-3.5 w-3.5" />
               <span className="flex-1">{t('chat.learnMore')}</span>
             </StyledDropdownMenuItem>
@@ -591,7 +591,7 @@ const ChatPage = React.memo(function ChatPage({ sessionId }: ChatPageProps) {
               <span className="flex-1">{t('chat.shareOnline')}</span>
             </StyledDropdownMenuItem>
             <StyledDropdownMenuSeparator />
-            <StyledDropdownMenuItem onClick={() => window.electronAPI.openUrl('https://agents.craft.do/docs/go-further/sharing')}>
+            <StyledDropdownMenuItem onClick={() => window.electronAPI.openUrl('https://agents.rocket.app/docs/go-further/sharing')}>
               <Info className="h-3.5 w-3.5" />
               <span className="flex-1">{t('chat.learnMore')}</span>
             </StyledDropdownMenuItem>

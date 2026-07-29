@@ -7,7 +7,7 @@
 
 import { spawn, ChildProcess } from 'child_process';
 import { existsSync } from 'fs';
-import { resolveBackendHostTooling } from '@craft-agent/shared/agent/backend';
+import { resolveBackendHostTooling } from '@rocket/shared/agent/backend';
 import { createScopedLogger, CONSOLE_LOGGER, type PlatformServices, type Logger } from '../runtime/platform';
 
 /**
@@ -114,7 +114,7 @@ function extractSnippetFast(rawLine: string, matchText: string, maxLength = 150)
 
     if (contentMatch) {
       // Simple string content - unescape and extract window around match
-      const content = contentMatch[1]
+      const content = contentMatch[1]!
         .replace(/\\n/g, ' ')
         .replace(/\\"/g, '"')
         .replace(/\\\\/g, '\\');
@@ -144,7 +144,7 @@ function extractSnippetFast(rawLine: string, matchText: string, maxLength = 150)
     // Content might be an array (Claude format) - extract first text block
     const textBlockMatch = rawLine.match(/"type"\s*:\s*"text"\s*,\s*"text"\s*:\s*"((?:[^"\\]|\\.)*)"/);
     if (textBlockMatch) {
-      const text = textBlockMatch[1]
+      const text = textBlockMatch[1]!
         .replace(/\\n/g, ' ')
         .replace(/\\"/g, '"')
         .replace(/\\\\/g, '\\');

@@ -1,11 +1,11 @@
 {
-  "name": "@craft-agent/server",
+  "name": "@rocket/server",
   "version": "0.11.2",
-  "description": "Standalone headless Craft Agent server (Bun runtime)",
+  "description": "Standalone headless Rocket server (Bun runtime)",
   "type": "module",
   "main": "src/index.ts",
   "bin": {
-    "craft-server": "src/index.ts"
+    "rocket-server": "src/index.ts"
   },
   "files": [
     "src/"
@@ -14,21 +14,21 @@
     "bun": ">=1.0.0"
   },
   "author": {
-    "name": "Craft Docs Ltd.",
-    "email": "support@craft.do"
+    "name": "Rocket",
+    "email": "support@rocket.app"
   },
   "license": "Apache-2.0",
-  "homepage": "https://agents.craft.do",
+  "homepage": "https://agents.rocket.app",
   "scripts": {
     "start": "bun run src/index.ts",
     "generate-token": "bun run src/index.ts --generate-token",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@craft-agent/core": "workspace:*",
-    "@craft-agent/messaging-gateway": "workspace:*",
-    "@craft-agent/server-core": "workspace:*",
-    "@craft-agent/shared": "workspace:*"
+    "@rocket/core": "workspace:*",
+    "@rocket/messaging-gateway": "workspace:*",
+    "@rocket/server-core": "workspace:*",
+    "@rocket/shared": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^5.8.2",

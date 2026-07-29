@@ -355,7 +355,10 @@ export async function processAttachment(
   if (basePath && filePath && !path.isAbsolute(filePath) && !filePath.startsWith('~')) {
     filePath = path.resolve(basePath, filePath);
   }
-  const filename = filePath.split('/').pop() || filePath;
+  // Attachment paths may come from a remote workspace whose separator differs
+  // from the host running Rocket. Never expose the full local path in the
+  // serialized prompt, and handle both POSIX and Windows separators.
+  const filename = filePath.split(/[\\/]/).pop() || filePath;
   const safeFilename = escapeXml(filename); // Escape for use in XML-like tags
 
   // --- Validate path exists and is a file ---

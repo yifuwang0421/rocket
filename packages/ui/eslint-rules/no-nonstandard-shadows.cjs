@@ -124,7 +124,7 @@ module.exports = {
         node &&
         node.type === 'Literal' &&
         typeof node.value === 'string' &&
-        node.value.trim().toLowerCase() === 'none'
+        (node.value.trim() === '' || node.value.trim().toLowerCase() === 'none')
       )
     }
 
