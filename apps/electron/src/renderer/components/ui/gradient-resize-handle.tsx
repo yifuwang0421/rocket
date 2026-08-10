@@ -5,8 +5,9 @@ import { useResizeGradient } from "@/hooks/useResizeGradient"
 
 interface GradientResizeHandleProps {
   className?: string
-  /** Height at which to place horizontal connector line (matches header separator) */
-  headerHeight?: number
+  /** Height at which to place horizontal connector line (matches header separator).
+   *  Pass `null` to hide the connector (e.g. when adjacent panels have no aligned headers). */
+  headerHeight?: number | null
 }
 
 /**
@@ -35,10 +36,12 @@ export function GradientResizeHandle({ className, headerHeight = 50 }: GradientR
       )}
     >
       {/* Horizontal connector - joins the header separators across panels */}
-      <div
-        className="absolute h-px bg-border"
-        style={{ top: headerHeight, left: -6, right: 0 }}
-      />
+      {headerHeight !== null && (
+        <div
+          className="absolute h-px bg-border"
+          style={{ top: headerHeight, left: -6, right: 0 }}
+        />
+      )}
 
       {/* Touch area container - extends 6px each side for 12px total hit area */}
       <div

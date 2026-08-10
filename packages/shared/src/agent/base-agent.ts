@@ -65,7 +65,7 @@ import { buildTitlePrompt, buildRegenerateTitlePrompt, validateTitle } from '../
 
 // Skill extraction for Codex/Copilot backends (Claude uses native SDK Skill tool)
 import { parseMentions, resolveSkillMentions, resolveSourceMentions, resolveFileMentions } from '../mentions/index.ts';
-import { loadAllSkills } from '../skills/storage.ts';
+import { loadEnabledSkills } from '../skills/storage.ts';
 
 // ============================================================
 // Mini Agent Configuration
@@ -200,6 +200,7 @@ export abstract class BaseAgent implements AgentBackend {
   // Additional State (protected for subclass access)
   // ============================================================
   protected temporaryClarifications: string | null = null;
+  protected currentResearchContexts: import('../protocol/dto.ts').WorkspaceAgentContextRef[] = [];
 
   // ============================================================
   // Source activation auto-retry (routed through the existing source_activated
@@ -936,7 +937,7 @@ ${formattedMessages}
   } {
     const workspaceRoot = this.config.workspace?.rootPath ?? this.workingDirectory;
     const projectRoot = this.config.session?.workingDirectory;
-    const skills = loadAllSkills(workspaceRoot, projectRoot);
+    const skills = loadEnabledSkills(workspaceRoot, projectRoot);
     const skillSlugs = skills.map(s => s.slug);
 
     this.debug(`[extractSkillPaths] Available skills: ${skillSlugs.join(', ')}`);
@@ -1047,10 +1048,12 @@ ${formattedMessages}
     // has skill paths stripped but otherwise matches what the user typed — exactly
     // what we want to resend when an activation forces a turn restart.
     this.setCurrentTurnUserMessage(cleanMessage);
+    this.currentResearchContexts = options?.researchContexts ?? [];
     try {
       yield* this.chatImpl(effectiveMessage, attachments, options);
     } finally {
       this.setCurrentTurnUserMessage(null);
+      this.currentResearchContexts = [];
     }
   }
 

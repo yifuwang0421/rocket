@@ -60,7 +60,7 @@ import {
   pushBackgroundFinishedAtom,
 } from '@/atoms/background-finished'
 import { visibleSessionIdsAtom } from '@/atoms/panel-stack'
-import { getSessionTitle } from '@/utils/session'
+import { getSessionTitle, isDisposableEmptySession } from '@/utils/session'
 import { extractBadges } from '@/lib/mentions'
 import { getDefaultStore } from 'jotai'
 import {
@@ -964,6 +964,15 @@ export default function App() {
         return
       }
 
+      if (event.type === 'workspace_research_changed') {
+        window.dispatchEvent(new CustomEvent('rocket:workspace-research-changed', { detail: event }))
+        return
+      }
+      if (event.type === 'workspace_research_scope_changed') {
+        window.dispatchEvent(new CustomEvent('rocket:research-scope-changed', { detail: event }))
+        return
+      }
+
       const agentEvent = event as unknown as AgentEvent
 
       // Track activity for stale session watchdog
@@ -1264,7 +1273,7 @@ export default function App() {
     window.electronAPI.sessionCommand(sessionId, { type: 'rename', name })
   }, [updateSessionById])
 
-  const handleSendMessage = useCallback(async (sessionId: string, message: string, attachments?: FileAttachment[], skillSlugs?: string[], externalBadges?: ContentBadge[]) => {
+  const handleSendMessage = useCallback(async (sessionId: string, message: string, attachments?: FileAttachment[], skillSlugs?: string[], externalBadges?: ContentBadge[], researchContexts?: import('@rocket/shared/protocol').WorkspaceAgentContextRef[]) => {
     try {
       // Capture pre-send processing state so we can flag mid-stream sends
       // for the queued badge (#616 follow-up — covers Pi steer path which
@@ -1412,6 +1421,7 @@ export default function App() {
         skillSlugs,
         badges: badges.length > 0 ? badges : undefined,
         optimisticMessageId: userMessage.id,
+        researchContexts,
       })
     } catch (error) {
       console.error('Failed to send message:', error)
@@ -1781,6 +1791,19 @@ export default function App() {
       // Open (or focus) the window for the selected workspace
       window.electronAPI.openWorkspace(workspaceId)
     } else {
+      // A research-layout blank session is disposable when the user leaves the
+      // workspace. Clean it before clearing the old workspace's atoms/drafts.
+      const leavingSessionId = sessionSelection.selected
+      const leavingMeta = leavingSessionId ? store.get(sessionMetaMapAtom).get(leavingSessionId) : undefined
+      if (leavingSessionId && isDisposableEmptySession(leavingMeta, getDraft(leavingSessionId))) {
+        try {
+          await window.electronAPI.deleteSession(leavingSessionId)
+          removeSession(leavingSessionId)
+        } catch (error) {
+          console.warn('[App] Failed to clean up empty session during workspace switch:', error)
+        }
+      }
+
       // Switch workspace in current window
       // 1. Update the main process's window-workspace mapping
       await window.electronAPI.switchWorkspace(workspaceId)
@@ -1821,7 +1844,7 @@ export default function App() {
       // Sessions and theme will reload automatically due to windowWorkspaceId dependency
       // in useEffect hooks.
     }
-  }, [windowWorkspaceId, setSession, store])
+  }, [windowWorkspaceId, setSession, setWindowWorkspaceId, store, sessionSelection.selected, getDraft, removeSession])
 
   // Handle workspace switch by slug (called by NavigationContext on popstate when ?ws= changes)
   const handleSwitchWorkspaceBySlug = useCallback((slug: string) => {

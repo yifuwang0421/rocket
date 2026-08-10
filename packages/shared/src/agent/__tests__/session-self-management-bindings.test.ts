@@ -104,6 +104,23 @@ describe('Pi session self-management regression (#511)', () => {
     const statusResolved = ctx.resolveStatus!('active');
     expect(statusResolved.resolved).toBe('active');
   });
+
+  it('exposes the Workspace research scope callback through the same lazy registry', async () => {
+    const ctx = createBaseContext(sessionId);
+    attachSessionSelfManagementBindings(ctx, sessionId);
+    const calls: unknown[] = [];
+
+    registerSessionScopedToolCallbacks(sessionId, {
+      manageResearchScopeFn: async input => {
+        calls.push(input);
+        return { revision: 'revision-1', watchlist: [], sectors: [] };
+      },
+    });
+
+    const result = await ctx.manageResearchScope!({ action: 'list' });
+    expect(calls).toEqual([{ action: 'list' }]);
+    expect(result).toEqual({ revision: 'revision-1', watchlist: [], sectors: [] });
+  });
 });
 
 // ============================================================

@@ -8,6 +8,8 @@
 // SubmitPlan
 export { handleSubmitPlan } from './submit-plan.ts';
 export type { SubmitPlanArgs } from './submit-plan.ts';
+export { handleManageResearchScope } from './manage-research-scope.ts';
+export type { ManageResearchScopeArgs } from './manage-research-scope.ts';
 
 // Config Validate
 export { handleConfigValidate } from './config-validate.ts';

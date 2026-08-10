@@ -44,6 +44,7 @@ import { useFocusZone } from "@/hooks/keyboard"
 import { useTheme } from "@/hooks/useTheme"
 import type { Session, Message, FileAttachment, StoredAttachment, PermissionRequest, CredentialRequest, CredentialResponse, LoadedSource, LoadedSkill } from "../../../shared/types"
 import type { PermissionMode } from "@rocket/shared/agent/modes"
+import type { WorkspaceAgentContextRef } from '@rocket/shared/protocol'
 import type { ThinkingLevel } from "@rocket/shared/agent/thinking-levels"
 import {
   TurnCard,
@@ -131,7 +132,10 @@ function getTurnKey(turn: Turn): string {
 
 interface ChatDisplayProps {
   session: Session | null
-  onSendMessage: (message: string, attachments?: FileAttachment[], skillSlugs?: string[]) => void
+  onSendMessage: (message: string, attachments?: FileAttachment[], skillSlugs?: string[], researchContexts?: WorkspaceAgentContextRef[]) => void
+  researchContexts?: WorkspaceAgentContextRef[]
+  onRemoveResearchContext?: (relativePath: string) => void
+  beforeResearchContextSubmit?: () => Promise<WorkspaceAgentContextRef[] | false>
   onOpenFile: (path: string) => void
   onOpenUrl: (url: string) => void
   // Model selection
@@ -233,6 +237,8 @@ interface ChatDisplayProps {
    * its current behavior; ChatPage opts in when in auto-compact / mobile.
    */
   enableCompactModelPicker?: boolean
+  /** Popup style used by compact toolbar selectors. */
+  compactPickerPresentation?: 'drawer' | 'popover'
   /** Custom placeholder for input (used in compact mode for edit context) */
   placeholder?: string | string[]
   /** Label shown as empty state in compact mode (e.g., "Permission Settings") */
@@ -491,10 +497,14 @@ export const ChatDisplay = React.forwardRef<ChatDisplayHandle, ChatDisplayProps>
   // Compact mode (for EditPopover embedding and auto-compact / WebUI mobile)
   compactMode = false,
   enableCompactModelPicker = false,
+  compactPickerPresentation = 'drawer',
   placeholder,
   emptyStateLabel,
   // Connection unavailable
   connectionUnavailable = false,
+  researchContexts = [],
+  onRemoveResearchContext,
+  beforeResearchContextSubmit,
 }, ref) {
   const { t } = useTranslation()
 
@@ -1221,7 +1231,7 @@ export const ChatDisplay = React.forwardRef<ChatDisplayHandle, ChatDisplayProps>
 
   // Handle message submission from InputContainer
   // Backend handles interruption and queueing if currently processing
-  const handleSubmit = (message: string, attachments?: FileAttachment[], skillSlugs?: string[]) => {
+  const handleSubmit = (message: string, attachments?: FileAttachment[], skillSlugs?: string[], submittedResearchContexts?: WorkspaceAgentContextRef[]) => {
     const hasBaseMessage = message.trim().length > 0
     const followUpSection = formatFollowUpSection(pendingFollowUpAnnotations, {
       includeTopSeparator: hasBaseMessage,
@@ -1233,7 +1243,7 @@ export const ChatDisplay = React.forwardRef<ChatDisplayHandle, ChatDisplayProps>
 
     // Force stick-to-bottom when user sends a message
     isStickToBottomRef.current = true
-    onSendMessage(normalizedMessage, attachments, skillSlugs)
+    onSendMessage(normalizedMessage, attachments, skillSlugs, submittedResearchContexts)
 
     // Persist sent marker on follow-up annotations so TurnCard can distinguish
     // sent vs pending follow-ups. If user edits a follow-up later, TurnCard
@@ -1942,6 +1952,7 @@ export const ChatDisplay = React.forwardRef<ChatDisplayHandle, ChatDisplayProps>
               onThinkingLevelChange,
               enabledModes,
               enableCompactModelPicker,
+              compactPickerPresentation,
               structuredInput,
               onStructuredResponse: handleStructuredResponse,
               inputValue,
@@ -1968,6 +1979,9 @@ export const ChatDisplay = React.forwardRef<ChatDisplayHandle, ChatDisplayProps>
               followUpItems: followUpInputItems,
               onFollowUpClick: handleFollowUpChipClick,
               onFollowUpIndexClick: handleFollowUpIndexClick,
+              researchContexts,
+              onRemoveResearchContext,
+              beforeResearchContextSubmit,
             }}
           />
           </div>

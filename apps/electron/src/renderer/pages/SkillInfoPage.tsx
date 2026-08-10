@@ -81,7 +81,7 @@ export default function SkillInfoPage({ skillSlug, workspaceId, workingDirectory
       isMounted = false
       unsubscribe?.()
     }
-  }, [workspaceId, skillSlug, workingDirectory])
+  }, [workspaceId, skillSlug, workingDirectory, t])
 
   // Handle open in finder
   const handleOpenInFinder = useCallback(async () => {
@@ -110,7 +110,18 @@ export default function SkillInfoPage({ skillSlug, workspaceId, workingDirectory
         description: err instanceof Error ? err.message : undefined,
       })
     }
-  }, [skill, workspaceId, skillSlug])
+  }, [skill, workspaceId, skillSlug, t])
+
+  const handleToggleEnabled = useCallback(async () => {
+    if (!skill || skill.source !== 'workspace') return
+    try {
+      await window.electronAPI.setSkillEnabled(workspaceId, skillSlug, skill.metadata.enabled === false)
+    } catch (err) {
+      toast.error('无法更新 Skill 状态', {
+        description: err instanceof Error ? err.message : undefined,
+      })
+    }
+  }, [skill, skillSlug, workspaceId])
 
   // Handle opening in new window
   const handleOpenInNewWindow = useCallback(() => {
@@ -160,6 +171,9 @@ export default function SkillInfoPage({ skillSlug, workspaceId, workingDirectory
             canShowInFinder={canRevealLocally}
             onDelete={canDeleteSkill ? handleDelete : undefined}
             canDelete={canDeleteSkill}
+            enabled={skill?.metadata.enabled !== false}
+            onToggleEnabled={canDeleteSkill ? handleToggleEnabled : undefined}
+            canToggleEnabled={canDeleteSkill}
             deleteLabel={canDeleteSkill ? t('skillInfo.deleteSkill') : t('skillInfo.managedByProject')}
           />
         }

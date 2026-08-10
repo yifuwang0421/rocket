@@ -144,6 +144,7 @@ export { createNodeFileSystem } from './context.ts';
 export {
   // SubmitPlan
   handleSubmitPlan,
+  handleManageResearchScope,
   // Config Validate
   handleConfigValidate,
   // Skill Validate
@@ -173,6 +174,7 @@ export {
 
 export type {
   SubmitPlanArgs,
+  ManageResearchScopeArgs,
   ConfigValidateArgs,
   SkillValidateArgs,
   MermaidValidateArgs,
@@ -193,6 +195,7 @@ export type {
 export {
   // Individual Zod schemas
   SubmitPlanSchema,
+  ManageResearchScopeSchema,
   ConfigValidateSchema,
   SkillValidateSchema,
   MermaidValidateSchema,

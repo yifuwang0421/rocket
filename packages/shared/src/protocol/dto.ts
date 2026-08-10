@@ -419,6 +419,8 @@ export type SessionEvent =
   | { type: 'usage_update'; sessionId: string; tokenUsage: { inputTokens: number; contextWindow?: number } }
   | { type: 'message_annotations_updated'; sessionId: string; messageId: string; annotations: AnnotationV1[] }
   | { type: 'working_directory_error'; sessionId: string; error: string }
+  | { type: 'workspace_research_changed'; sessionId: string; relativePath: string; version: string }
+  | { type: 'workspace_research_scope_changed'; sessionId: string; revision: string }
 
 export interface SendMessageOptions {
   skillSlugs?: string[]
@@ -431,6 +433,8 @@ export interface SendMessageOptions {
    * surfacing) that should wake the agent without looking user-authored.
    */
   hidden?: boolean
+  /** Workspace research resource references; never contains file bodies. */
+  researchContexts?: WorkspaceAgentContextRef[]
 }
 
 // ---------------------------------------------------------------------------
@@ -555,6 +559,244 @@ export interface FileSearchResult {
   path: string
   type: 'file' | 'directory'
   relativePath: string
+}
+
+// ---------------------------------------------------------------------------
+// Workspace research file types
+// ---------------------------------------------------------------------------
+
+export type WorkspaceResearchArea = 'notes' | 'documents'
+
+export type WorkspaceResearchFileKind =
+  | 'markdown'
+  | 'pdf'
+  | 'html'
+  | 'docx'
+  | 'xlsx'
+  | 'other'
+
+/** A file visible in the P1 research workspace. Paths are always workspace-relative. */
+export interface WorkspaceResearchFileEntry {
+  name: string
+  relativePath: string
+  area: WorkspaceResearchArea
+  kind: WorkspaceResearchFileKind
+  size: number
+  modifiedAt: number
+}
+
+export interface WorkspaceResearchFileList {
+  area: WorkspaceResearchArea
+  entries: WorkspaceResearchFileEntry[]
+  truncated: boolean
+}
+
+export interface WorkspaceMarkdownDocument {
+  relativePath: string
+  content: string
+  /** Content hash used for optimistic conflict detection on explicit save. */
+  version: string
+  modifiedAt: number
+}
+
+export type WorkspaceResearchPreviewKind = 'pdf' | 'html' | 'docx' | 'xlsx'
+
+interface WorkspaceResearchPreviewBase {
+  relativePath: string
+  kind: WorkspaceResearchPreviewKind
+  size: number
+  modifiedAt: number
+}
+
+/**
+ * Safe, workspace-scoped payload used by the P1 research reader. Office files
+ * are converted on the server so the renderer never receives an arbitrary
+ * filesystem path or parses untrusted archives itself.
+ */
+export type WorkspaceResearchPreview =
+  | (WorkspaceResearchPreviewBase & {
+      kind: 'pdf'
+      contentType: 'application/pdf'
+      data: Uint8Array
+    })
+  | (WorkspaceResearchPreviewBase & {
+      kind: 'html'
+      contentType: 'text/html'
+      content: string
+    })
+  | (WorkspaceResearchPreviewBase & {
+      kind: 'docx' | 'xlsx'
+      contentType: 'text/markdown'
+      content: string
+    })
+
+export type WorkspaceAgentWritePolicy = 'read-only' | 'versioned-write'
+
+/** Resource metadata passed to an Agent. File bodies are deliberately absent. */
+export interface WorkspaceAgentContextRef {
+  workspaceId: string
+  relativePath: string
+  name: string
+  area: WorkspaceResearchArea
+  kind: WorkspaceResearchFileKind
+  mediaType: string
+  size: number
+  modifiedAt: number
+  /** SHA-256 of the source file at the time the context was attached. */
+  version: string
+  writePolicy: WorkspaceAgentWritePolicy
+}
+
+export interface WorkspaceResearchSearchInput {
+  workspaceId: string
+  query: string
+  area?: WorkspaceResearchArea
+  limit?: number
+}
+
+export interface WorkspaceResearchSearchHit {
+  name: string
+  relativePath: string
+  area: WorkspaceResearchArea
+  kind: WorkspaceResearchFileKind
+  size: number
+  modifiedAt: number
+  score: number
+  snippet: string
+  isTruncated: boolean
+}
+
+export interface WorkspaceResearchSearchResult {
+  query: string
+  hits: WorkspaceResearchSearchHit[]
+  total: number
+  indexedFiles: number
+  refreshedFiles: number
+  failedFiles: Array<{ relativePath: string; message: string }>
+  indexUpdatedAt: number
+}
+
+export interface WorkspaceResearchIndexRebuildResult {
+  indexedFiles: number
+  failedFiles: Array<{ relativePath: string; message: string }>
+  indexUpdatedAt: number
+}
+
+export type ResearchProgressStatus = 'not-started' | 'tracking' | 'in-progress' | 'review' | 'complete' | 'paused'
+export type ResearchAttentionLevel = 'core' | 'high' | 'normal' | 'low'
+export type ResearchScopeKind = 'watchlist' | 'sector'
+
+export interface StockSearchSuggestion {
+  name: string
+  code: string
+  market: string
+}
+
+export interface StockSearchInput {
+  workspaceId: string
+  query: string
+  limit?: number
+}
+
+export interface WatchlistItem {
+  id: string
+  /** Stable Workspace-relative folder containing this company's research files. */
+  folderPath: string
+  name: string
+  code: string
+  market: string
+  group: string
+  status: ResearchProgressStatus
+  tags: string[]
+  thesis: string
+  relatedResources: string[]
+  lastResearchedAt?: number
+  createdAt: number
+  updatedAt: number
+}
+
+export interface SectorItem {
+  id: string
+  /** Stable Workspace-relative folder containing this sector's research files. */
+  folderPath: string
+  name: string
+  attention: ResearchAttentionLevel
+  status: ResearchProgressStatus
+  thesis: string
+  companyIds: string[]
+  relatedResources: string[]
+  lastResearchedAt?: number
+  createdAt: number
+  updatedAt: number
+}
+
+export interface WorkspaceResearchScope {
+  schemaVersion: 3
+  revision: string
+  watchlist: WatchlistItem[]
+  sectors: SectorItem[]
+}
+
+export interface UpsertWatchlistItemInput {
+  workspaceId: string
+  expectedRevision: string
+  item: Omit<WatchlistItem, 'id' | 'folderPath' | 'createdAt' | 'updatedAt'> & { id?: string }
+}
+
+export interface UpsertSectorItemInput {
+  workspaceId: string
+  expectedRevision: string
+  item: Omit<SectorItem, 'id' | 'folderPath' | 'createdAt' | 'updatedAt'> & { id?: string }
+}
+
+export interface RemoveResearchScopeItemInput {
+  workspaceId: string
+  expectedRevision: string
+  id: string
+}
+
+export interface WorkspaceResearchFolderEntry {
+  name: string
+  relativePath: string
+  parentRelativePath: string
+  type: 'directory' | 'file'
+  kind?: WorkspaceResearchFileKind
+  size?: number
+  modifiedAt: number
+}
+
+export interface WorkspaceResearchFolderList {
+  folderPath: string
+  entries: WorkspaceResearchFolderEntry[]
+  truncated: boolean
+}
+
+export interface ResearchScopeFolderInput {
+  workspaceId: string
+  kind: ResearchScopeKind
+  id: string
+}
+
+export interface ImportResearchScopeFolderInput extends ResearchScopeFolderInput {
+  targetRelativePath: string
+  sourcePaths: string[]
+}
+
+export interface CreateResearchScopeFolderEntryInput extends ResearchScopeFolderInput {
+  parentRelativePath: string
+  name: string
+  type: 'directory' | 'markdown'
+}
+
+export interface SaveWorkspaceMarkdownInput {
+  workspaceId: string
+  relativePath: string
+  content: string
+  expectedVersion: string
+}
+
+export interface WorkspaceFileImportResult {
+  imported: WorkspaceResearchFileEntry[]
 }
 
 // ---------------------------------------------------------------------------

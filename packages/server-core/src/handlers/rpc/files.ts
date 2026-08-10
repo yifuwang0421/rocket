@@ -3,7 +3,14 @@ import { isAbsolute, join, resolve, dirname, parse as parsePath } from 'path'
 import { homedir } from 'os'
 import { validatePathFormat } from '../../utils/path-validation'
 import { randomUUID } from 'crypto'
-import { RPC_CHANNELS, type FileAttachment, type DirectoryListingResult } from '@rocket/shared/protocol'
+import {
+  RPC_CHANNELS,
+  type DirectoryListingResult,
+  type FileAttachment,
+  type SaveWorkspaceMarkdownInput,
+  type WorkspaceResearchArea,
+  type WorkspaceResearchSearchInput,
+} from '@rocket/shared/protocol'
 import type { StoredAttachment } from '@rocket/core/types'
 import { readFileAttachment, validateImageForClaudeAPI, IMAGE_LIMITS } from '@rocket/shared/utils'
 import { getSessionAttachmentsPath, validateSessionId } from '@rocket/shared/sessions'
@@ -14,8 +21,24 @@ import { MarkItDown } from 'markitdown-js'
 import type { RpcServer } from '@rocket/server-core/transport'
 import type { HandlerDeps } from '../handler-deps'
 import { requestClientOpenFileDialog } from '@rocket/server-core/transport'
+import {
+  createWorkspaceMarkdown,
+  importFilesToWorkspace,
+  listWorkspaceResearchFiles,
+  readWorkspaceMarkdown,
+  readWorkspaceResearchPreview,
+  readWorkspaceAgentContext,
+  saveWorkspaceMarkdown,
+} from '../../services/workspace-research-files'
+import {
+  rebuildWorkspaceResearchIndex,
+  searchWorkspaceResearchIndex,
+} from '../../services/workspace-research-index'
 
 export const HANDLED_CHANNELS = [
+  RPC_CHANNELS.file.CREATE_WORKSPACE_MARKDOWN,
+  RPC_CHANNELS.file.IMPORT_TO_WORKSPACE,
+  RPC_CHANNELS.file.LIST_WORKSPACE_FILES,
   RPC_CHANNELS.file.READ,
   RPC_CHANNELS.file.READ_DATA_URL,
   RPC_CHANNELS.file.READ_PREVIEW_DATA_URL,
@@ -24,12 +47,68 @@ export const HANDLED_CHANNELS = [
   RPC_CHANNELS.file.READ_ATTACHMENT,
   RPC_CHANNELS.file.READ_USER_ATTACHMENT,
   RPC_CHANNELS.file.STORE_ATTACHMENT,
+  RPC_CHANNELS.file.READ_WORKSPACE_MARKDOWN,
+  RPC_CHANNELS.file.READ_WORKSPACE_PREVIEW,
+  RPC_CHANNELS.file.GET_WORKSPACE_AGENT_CONTEXT,
+  RPC_CHANNELS.file.SEARCH_WORKSPACE_RESEARCH,
+  RPC_CHANNELS.file.REBUILD_WORKSPACE_RESEARCH_INDEX,
+  RPC_CHANNELS.file.SAVE_WORKSPACE_MARKDOWN,
   RPC_CHANNELS.file.GENERATE_THUMBNAIL,
   RPC_CHANNELS.fs.SEARCH,
   RPC_CHANNELS.fs.LIST_DIRECTORY,
 ] as const
 
 export function registerFilesHandlers(server: RpcServer, deps: HandlerDeps): void {
+  const getWorkspaceRoot = (ctxWorkspaceId: string | null | undefined, requestedWorkspaceId: string): string => {
+    if (ctxWorkspaceId && ctxWorkspaceId !== requestedWorkspaceId) {
+      throw new Error('Workspace mismatch')
+    }
+    const workspace = getWorkspaceByNameOrId(requestedWorkspaceId)
+    if (!workspace) throw new Error(`Workspace not found: ${requestedWorkspaceId}`)
+    return workspace.rootPath
+  }
+
+  server.handle(RPC_CHANNELS.file.LIST_WORKSPACE_FILES, async (ctx, workspaceId: string, area: WorkspaceResearchArea) => {
+    return listWorkspaceResearchFiles(getWorkspaceRoot(ctx.workspaceId, workspaceId), area)
+  })
+
+  server.handle(RPC_CHANNELS.file.READ_WORKSPACE_MARKDOWN, async (ctx, workspaceId: string, relativePath: string) => {
+    return readWorkspaceMarkdown(getWorkspaceRoot(ctx.workspaceId, workspaceId), relativePath)
+  })
+
+  server.handle(RPC_CHANNELS.file.READ_WORKSPACE_PREVIEW, async (ctx, workspaceId: string, relativePath: string) => {
+    return readWorkspaceResearchPreview(getWorkspaceRoot(ctx.workspaceId, workspaceId), relativePath)
+  })
+
+  server.handle(RPC_CHANNELS.file.GET_WORKSPACE_AGENT_CONTEXT, async (ctx, workspaceId: string, relativePath: string) => {
+    return readWorkspaceAgentContext(getWorkspaceRoot(ctx.workspaceId, workspaceId), workspaceId, relativePath)
+  })
+
+  server.handle(RPC_CHANNELS.file.SEARCH_WORKSPACE_RESEARCH, async (ctx, input: WorkspaceResearchSearchInput) => {
+    return searchWorkspaceResearchIndex(getWorkspaceRoot(ctx.workspaceId, input.workspaceId), input)
+  })
+
+  server.handle(RPC_CHANNELS.file.REBUILD_WORKSPACE_RESEARCH_INDEX, async (ctx, workspaceId: string) => {
+    return rebuildWorkspaceResearchIndex(getWorkspaceRoot(ctx.workspaceId, workspaceId), workspaceId)
+  })
+
+  server.handle(RPC_CHANNELS.file.SAVE_WORKSPACE_MARKDOWN, async (ctx, input: SaveWorkspaceMarkdownInput) => {
+    return saveWorkspaceMarkdown(
+      getWorkspaceRoot(ctx.workspaceId, input.workspaceId),
+      input.relativePath,
+      input.content,
+      input.expectedVersion,
+    )
+  })
+
+  server.handle(RPC_CHANNELS.file.CREATE_WORKSPACE_MARKDOWN, async (ctx, workspaceId: string, area: WorkspaceResearchArea, name: string) => {
+    return createWorkspaceMarkdown(getWorkspaceRoot(ctx.workspaceId, workspaceId), area, name)
+  })
+
+  server.handle(RPC_CHANNELS.file.IMPORT_TO_WORKSPACE, async (ctx, workspaceId: string, area: WorkspaceResearchArea, sourcePaths: string[]) => {
+    return importFilesToWorkspace(getWorkspaceRoot(ctx.workspaceId, workspaceId), area, sourcePaths)
+  })
+
   // Read a file (with path validation to prevent traversal attacks)
   server.handle(RPC_CHANNELS.file.READ, async (ctx, path: string) => {
     try {

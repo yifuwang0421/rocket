@@ -21,6 +21,8 @@ import {
   FolderOpen,
   AppWindow,
   Send,
+  ToggleLeft,
+  ToggleRight,
 } from 'lucide-react'
 import { useMenuComponents } from '@/components/ui/menu-context'
 import { getFileManagerName } from '@/lib/platform'
@@ -34,6 +36,9 @@ export interface SkillMenuProps {
   onOpenInNewWindow: () => void
   onShowInFinder: () => void | Promise<void>
   onDelete?: () => void
+  enabled?: boolean
+  onToggleEnabled?: () => void
+  canToggleEnabled?: boolean
   canShowInFinder?: boolean
   canDelete?: boolean
   deleteLabel?: string
@@ -51,6 +56,9 @@ export function SkillMenu({
   onOpenInNewWindow,
   onShowInFinder,
   onDelete,
+  enabled = true,
+  onToggleEnabled,
+  canToggleEnabled = false,
   canShowInFinder = true,
   canDelete = true,
   deleteLabel,
@@ -80,6 +88,13 @@ export function SkillMenu({
         <MenuItem onClick={onSendToWorkspace}>
           <Send className="h-3.5 w-3.5" />
           <span className="flex-1">{t("sessionMenu.sendToWorkspace")}</span>
+        </MenuItem>
+      )}
+
+      {onToggleEnabled && (
+        <MenuItem onClick={canToggleEnabled ? onToggleEnabled : undefined} disabled={!canToggleEnabled}>
+          {enabled ? <ToggleLeft className="h-3.5 w-3.5" /> : <ToggleRight className="h-3.5 w-3.5" />}
+          <span className="flex-1">{enabled ? '停用 Skill' : '启用 Skill'}</span>
         </MenuItem>
       )}
 

@@ -19,11 +19,14 @@ import { homedir, tmpdir } from 'os';
 import { join } from 'path';
 import {
   loadAllSkills,
+  loadEnabledSkills,
+  loadSkillBySlug,
   loadWorkspaceSkills,
   loadSkill,
   skillExists,
   listSkillSlugs,
   deleteSkill,
+  setSkillEnabled,
 } from '../storage.ts';
 
 // ============================================================
@@ -45,7 +48,7 @@ const REAL_GLOBAL_SKILLS_DIR = join(homedir(), '.agents', 'skills');
 function createSkill(
   skillsDir: string,
   slug: string,
-  opts: { name?: string; description?: string; globs?: string[]; content?: string; icon?: string; requiredSources?: string[] } = {}
+  opts: { name?: string; description?: string; globs?: string[]; content?: string; icon?: string; requiredSources?: string[]; enabled?: boolean } = {}
 ): string {
   const skillDir = join(skillsDir, slug);
   mkdirSync(skillDir, { recursive: true });
@@ -58,10 +61,11 @@ function createSkill(
   const requiredSources = opts.requiredSources
     ? `\nrequiredSources:\n${opts.requiredSources.map(source => `  - "${source}"`).join('\n')}`
     : '';
+  const enabled = opts.enabled === undefined ? '' : `\nenabled: ${opts.enabled}`;
 
   const skillMd = `---
 name: "${name}"
-description: "${description}"${globs}${icon}${requiredSources}
+description: "${description}"${globs}${icon}${requiredSources}${enabled}
 ---
 
 ${content}
@@ -240,6 +244,35 @@ Use linear tools.
 
     expect(skill).not.toBeNull();
     expect(skill!.iconPath).toBeUndefined();
+  });
+});
+
+describe('skill enabled state', () => {
+  it('keeps disabled skills visible to management but excludes agent loading', () => {
+    const skillsDir = join(workspaceRoot, 'skills');
+    createSkill(skillsDir, 'disabled-skill', { enabled: false });
+
+    expect(loadAllSkills(workspaceRoot).find(skill => skill.slug === 'disabled-skill')?.metadata.enabled).toBe(false);
+    expect(loadEnabledSkills(workspaceRoot).some(skill => skill.slug === 'disabled-skill')).toBe(false);
+    expect(loadSkillBySlug(workspaceRoot, 'disabled-skill')).toBeNull();
+  });
+
+  it('does not fall back to a lower-priority skill when an override is disabled', () => {
+    createSkill(join(workspaceRoot, 'skills'), 'shadowed-skill');
+    createSkill(join(projectRoot, '.agents', 'skills'), 'shadowed-skill', { enabled: false });
+
+    expect(loadEnabledSkills(workspaceRoot, projectRoot).some(skill => skill.slug === 'shadowed-skill')).toBe(false);
+    expect(loadSkillBySlug(workspaceRoot, 'shadowed-skill', projectRoot)).toBeNull();
+  });
+
+  it('toggles a workspace skill through SKILL.md frontmatter', () => {
+    const skillsDir = join(workspaceRoot, 'skills');
+    createSkill(skillsDir, 'toggle-skill');
+
+    expect(setSkillEnabled(workspaceRoot, 'toggle-skill', false)).toBe(true);
+    expect(loadSkill(workspaceRoot, 'toggle-skill')?.metadata.enabled).toBe(false);
+    expect(setSkillEnabled(workspaceRoot, 'toggle-skill', true)).toBe(true);
+    expect(loadSkillBySlug(workspaceRoot, 'toggle-skill')?.metadata.enabled).toBe(true);
   });
 });
 

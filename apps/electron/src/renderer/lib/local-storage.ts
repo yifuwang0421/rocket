@@ -37,6 +37,8 @@ export const KEYS = {
 
   // Tabs (workspace-scoped)
   tabs: 'tabs', // Used as: tabs-${workspaceId}
+  researchWorkspaceState: 'research-workspace-state',
+  researchMarkdownDrafts: 'research-markdown-drafts',
 
   // Working directory
   recentWorkingDirs: 'recent-working-dirs',

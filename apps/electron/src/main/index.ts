@@ -1314,9 +1314,24 @@ app.on(`before-quit`, async (event) => {
 
 // Handle uncaught exceptions — forward to Sentry explicitly since registering
 // a custom handler can interfere with @sentry/electron's automatic capture.
+//
+// Guard the handler itself: when a detached development terminal closes,
+// writing to the console can throw EPIPE. Logging that EPIPE to the same broken
+// stream recursively emits another EPIPE and can consume an entire CPU core.
+let handlingUncaughtException = false
 process.on('uncaughtException', (error) => {
-  mainLog.error('Uncaught exception:', error)
-  Sentry?.captureException(error)
+  if (handlingUncaughtException) return
+  handlingUncaughtException = true
+
+  try {
+    if ((error as NodeJS.ErrnoException)?.code === 'EPIPE') {
+      log.transports.console.level = false
+    }
+    mainLog.error('Uncaught exception:', error)
+    Sentry?.captureException(error)
+  } finally {
+    handlingUncaughtException = false
+  }
 })
 
 process.on('unhandledRejection', (reason, promise) => {

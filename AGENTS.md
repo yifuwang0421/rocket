@@ -1,6 +1,6 @@
 # Rocket — AI-Native Investment Research Workbench
 
-> **目前状态**: v0.2 · P0 完成（非发布基线）· P1-1 原型开发中（三栏布局默认关闭）
+> **目前状态**: v0.2 · P0 完成（非发布基线）· P1-0 至 P1-9 已实现并通过自动化验收（三栏布局默认启用）
 > **基础项目**: Forked from [Craft Agents OSS](https://github.com/craft-ai-agents/craft-agents-oss) (Apache 2.0)
 > **桌面壳**: Electron 33.3.1 · **引擎**: Pi SDK (多供应商模型) + Claude Agent SDK
 
@@ -17,7 +17,7 @@ Rocket 是一个 AI 原生的投研工作台桌面应用，专为二级市场基
 | 信息聚合 | 分散在多个应用 | **一个桌面应用整合** |
 | 数据获取 | 手动查询、导出 | **Agent 按需调取，自动结构化** |
 | 分析产出 | 手动做表、截图、粘贴 | **Agent 辅助分析，结果可直接保存** |
-| 知识沉淀 | 笔记和文件散落各处 | **统一知识库 + 可搜索** |
+| 知识沉淀 | 笔记和文件散落各处 | **Workspace 资料与笔记统一检索** |
 | 分析框架 | 靠个人经验记忆 | **可复用的 Skills（分析模板）** |
 
 ### 1.2 技术栈
@@ -138,26 +138,22 @@ rocket/
 | 渲染器路径错误 | bun build 保留源码 `__dirname` | 增加 `RENDERER_ROOT` 自动检测 dist 路径 |
 | 预加载脚本路径错误 | 同上 | 修正为 `../../dist/` 相对路径 |
 
-### 3.3 三栏布局原型 (P1-1)
+### 3.3 三栏投研工作台 (P1)
 
-已完成三栏可伸缩布局的初步原型，但真实数据、文件视图和 Agent 对话尚未接入。
-P0 默认使用稳定的经典布局；只有在构建环境设置
-`VITE_ROCKET_RESEARCH_LAYOUT=1` 时才启用该原型。
+三栏可伸缩布局已接入真实 Agent 会话、Workspace 文件目录、Markdown 编辑保存、PDF/HTML/Word/Excel 只读预览、可重建全文检索、版本锁定的 Agent 文件上下文，以及文件夹化的公司/行业研究范围管理。三栏布局默认启用；在构建环境设置 `VITE_ROCKET_RESEARCH_LAYOUT=0` 可临时回退经典布局。
 
 ```
 ┌──────────┬──────────────────────────────┬──────────┐
 │  左栏    │         中栏                  │  右栏    │
 │  导航    │  Tab 标签栏                   │  Agent   │
 │          │  ┌──────────────────────┐    │  对话    │
-│  搜索框  │  │  内容区              │    │          │
-│  自选股  │  │  · Home 首页         │    │  Bot 图标│
-│  行业    │  │  · 文件阅览器 (P1-3) │    │  占位文字 │
-│  工具    │  │  · 笔记编辑器 (P1-3) │    │          │
-│  笔记    │  │  · 图表 (P2)        │    │          │
-│  数据源  │  └──────────────────────┘    │          │
+│  工作区  │  │  内容区              │    │  会话历史│
+│  Skills  │  │  · 投研概览          │    │  Agent   │
+│  数据源  │  │  · 资料目录          │    │  对话    │
+│  笔记    │  │  · Markdown 编辑器   │    │          │
+│  设置    │  │  · 文档阅读与检索    │    │          │
+│  定时任务│  └──────────────────────┘    │          │
 │          │                              │          │
-├──────────┴──────────────────────────────┴──────────┤
-│                  状态栏 (待实现)                     │
 └────────────────────────────────────────────────────┘
 
 ← 可拖拽 →                          ← 可拖拽 →
@@ -173,83 +169,44 @@ P0 默认使用稳定的经典布局；只有在构建环境设置
 
 ## 4. 开发路线图
 
-### Phase P1: 布局改造 + 核心视图 (当前)
+### Phase P1: 本地投研工作台闭环（已完成实现）
 
-| 编号 | 任务 | 状态 | 负责人 |
-|---|---|---|---|
-| P1-1 | 三栏可伸缩布局 | 🚧 原型 | 默认关闭，待真实数据与 Agent 集成 |
-| P1-2 | 左栏导航树（自选股/行业/工具/笔记） | 📋 待开始 | |
-| P1-3 | 中栏 Tab 系统 + 文件阅览器 (MD/PDF/DOCX/XLSX) | 📋 待开始 | |
-| P1-4 | K 线图表组件 (ECharts) | 📋 待开始 | |
-| P1-5 | 自选股/关注列表 | 📋 待开始 | |
-| P1-6 | 右栏 Agent 对话集成 | 📋 待开始 | |
-| P1-7 | 底部状态栏 | 📋 待开始 | |
+P1 的唯一规范来源是 [`docs/p1-implementation-plan.md`](docs/p1-implementation-plan.md)，验收证据见 [`docs/p1-acceptance-report.md`](docs/p1-acceptance-report.md)。三栏布局默认启用，经典布局回退开关保留一个发布周期。
 
-#### P1-2 详细规划 — 左栏导航树
-
-**目标**: 将 ResearchSidebar 中的占位数据替换为真实数据源
-
-**需要的工作**:
-1. 连接自选股数据源 (从配置/存储读取用户关注的公司列表)
-2. 行业/公司动态获取 (从 AKShare/yfinance 等数据源读取)
-3. 导航树可拖拽排序 (复用已有的 `sortable-list.tsx`)
-4. 右键上下文菜单 (复用已有的 `SidebarMenu.tsx`)
-5. 搜索功能接入后端搜索
-
-**关键文件**:
-- `components/app-shell/ResearchSidebar.tsx` — 主组件
-- `atoms/workspace-tabs.ts` — 用于打开公司页面到主工作区
-- `hooks/useProjects.ts`, `hooks/useLabels.ts` — 复用已有的 hooks
-
-**技术要点**:
-- 使用现有 `Collapsible` 组件实现树展开/折叠
-- 使用现有 `SortableList` 实现拖拽排序
-- 点击导航项 → `openTabAtom` 在主工作区打开对应的 tab
-
-#### P1-3 详细规划 — 文件阅览器 + Tab 系统
-
-**目标**: 主工作区可以打开并显示 Markdown/PDF/Word/Excel 文件
-
-**已有基础** (不需额外安装):
-
-| 格式 | 渲染方案 | 是否已有 |
+| 编号 | 任务 | 状态 |
 |---|---|---|
-| Markdown | `react-markdown` + shiki 高亮 | ✅ 项目已有 |
-| PDF | PDF.js (pdf.worker.min.mjs 已打包) | ✅ 项目已有 |
-| Word (.docx) | 通过 markitdown Python 脚本转为 markdown | ✅ 资源脚本已有 |
-| Excel (.xlsx) | 通过 xlsx-tool Python 脚本解析 | ✅ 资源脚本已有 |
-| HTML | iframe 沙盒渲染 | ✅ 基础能力 |
+| P1-0 | 冻结规格、修正路线图、移除原型假数据、建立验收清单 | ✅ 已完成 |
+| P1-1 | Workspace 级中栏模式、研究 Tab 合约、持久化与恢复 | ✅ 已完成 |
+| P1-2 | 最终左栏导航及 Skills/Sources/Automations/Settings 复用 | ✅ 已完成（自动化验证） |
+| P1-3 | 当前 Workspace 会话与右栏历史抽屉 | ✅ 已完成（自动化验证） |
+| P1-4 | 资料目录、Markdown 导入、编辑和显式保存 | ✅ 已完成（自动化验证） |
+| P1-5 | PDF/HTML/DOCX/XLSX 只读预览 | ✅ 已完成（自动化验证） |
+| P1-6 | Workspace 全文索引和搜索 | ✅ 已完成（自动化验证） |
+| P1-7 | Agent 资源上下文、安全写入和冲突处理 | ✅ 已完成（自动化验证） |
+| P1-8 | 文件夹化的公司和行业研究范围管理 | ✅ 已完成（自动化验证） |
+| P1-9 | 统一状态、错误恢复、可访问性和完整验收 | ✅ 实现完成，自动化验收通过；Windows 人工回归待补 |
 
-**关键文件**:
-- `components/app-shell/WorkspaceTabs.tsx` — 主组件 (需要扩展)
-- `components/app-shell/WorkspaceTabBar.tsx` — Tab 标签栏
-- `atoms/workspace-tabs.ts` — Tab 状态管理
+P1 明确不包含实时行情、K 线、OCR、独立知识库、应用级全局搜索、非 scheduled 自动化和底部状态栏。
 
-**技术要点**:
-- Tab 状态已通过 Jotai atom 管理 (`openTabsAtom`)
-- 文件打开统一接口: `openTabAtom` dispatch → 自动选择渲染器
-- 文件类型检测: 根据扩展名 `.md / .pdf / .docx / .xlsx` 选择渲染组件
-- 文件内容读取: 通过 `window.electronAPI` 或 IPC 读取本地文件
-
-### Phase P2: 投研能力
+### Phase P2: 数据驱动的投研能力
 
 | 编号 | 任务 | 优先级 |
 |---|---|---|
 | P2-1 | 接入 AKShare 数据 Source | P0 |
 | P2-2 | 接入 yfinance 数据 Source | P0 |
-| P2-3 | 实现财务比率分析 Skill | P0 |
-| P2-4 | 实现同业对比 Skill | P0 |
-| P2-5 | DCF 估值 Skill | P1 |
-| P2-6 | 行业扫描 Skill | P1 |
+| P2-3 | K 线、行情与财务数据视图 | P0 |
+| P2-4 | 实现财务比率分析 Skill | P0 |
+| P2-5 | 实现同业对比 Skill | P0 |
+| P2-6 | DCF 估值和行业扫描 Skill | P1 |
 
-### Phase P3: 知识库
+### Phase P3: 高级研究能力
 
 | 编号 | 任务 | 优先级 |
 |---|---|---|
-| P3-1 | TipTap 编辑器集成到中栏 | P0 |
-| P3-2 | 知识库结构（行业/公司/笔记） | P0 |
-| P3-3 | Agent 可读写知识库 | P1 |
-| P3-4 | 全文搜索 | P1 |
+| P3-1 | 公司与行业结构化研究模板 | P0 |
+| P3-2 | 财务模型和图表联动 | P0 |
+| P3-3 | OCR 与更多文档格式 | P1 |
+| P3-4 | 跨 Workspace 研究聚合 | P1 |
 
 ### Phase P4: 打磨与扩展
 
@@ -418,18 +375,21 @@ PowerShell 用 `Remove-Item <path> -Force`，Git Bash 用 `rm -f <path>`。
 - [x] Fork 改名完成 (@rocket/* 包名)
 - [x] 主进程 + 预加载 + 渲染器编译通过
 - [x] Windows 11 桌面应用正常启动
-- [x] 三栏可伸缩布局原型（P1-1，默认关闭）
-- [x] Tab 状态管理原型
+- [x] 三栏可伸缩布局（P1-1，默认启用）
+- [x] Workspace 级 Tab 状态管理与恢复
 - [x] 所有 Windows 兼容性修复
 
 ### 待交付 (P1)
 
-- [ ] 左侧导航真实数据 (P1-2)
-- [ ] 文件阅览器 (Markdown/PDF/Word/Excel) (P1-3)
-- [ ] K 线图表组件 (P1-4)
-- [ ] 自选股列表 (P1-5)
-- [ ] Agent 对话集成 (P1-6)
-- [ ] 底部状态栏 (P1-7)
+- [x] Workspace 级中栏模式、研究 Tab 和恢复机制 (P1-1)
+- [x] 最终左侧导航及管理页复用 (P1-2)
+- [x] 当前 Workspace 会话和历史抽屉 (P1-3)
+- [x] 资料目录和 Markdown 编辑保存 (P1-4)
+- [x] PDF/HTML/Word/Excel 只读预览 (P1-5)
+- [x] Workspace 全文索引和搜索 (P1-6)
+- [x] Agent 上下文、安全写入和冲突处理 (P1-7)
+- [x] 公司和行业研究管理 (P1-8)
+- [x] 统一状态、错误恢复和 `validate:p1` (P1-9；Windows 人工回归待补)
 
 ---
 

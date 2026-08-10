@@ -131,12 +131,12 @@ export function PanelHeader({
   // Controlled dropdown state for anchoring to chevron while keeping full title clickable
   const [dropdownOpen, setDropdownOpen] = useState(false)
 
-  // Force-close the desktop dropdown when compact mode takes over the title
-  // slot — otherwise the open state survives unmount and the dropdown
-  // resurrects open the next time the user resizes back to desktop width.
+  // Force-close the desktop dropdown only when a compact title menu actually
+  // takes over the slot. Embedded desktop panels can keep compact header
+  // spacing while intentionally using the regular Craft dropdown.
   React.useEffect(() => {
-    if (isCompactMode && dropdownOpen) setDropdownOpen(false)
-  }, [isCompactMode, dropdownOpen])
+    if (isCompactMode && compactTitleMenu && dropdownOpen) setDropdownOpen(false)
+  }, [compactTitleMenu, isCompactMode, dropdownOpen])
 
   // Title content - either static or interactive with dropdown
   // Shimmer effect shows during title regeneration

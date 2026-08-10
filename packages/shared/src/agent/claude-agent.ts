@@ -1356,6 +1356,7 @@ export class ClaudeAgent extends BaseAgent {
                 permissionManager: this.permissionManager,
                 prerequisiteManager: this.prerequisiteManager,
                 rtkContext,
+                researchContexts: this.currentResearchContexts,
                 onDebug: (msg) => this.onDebug?.(msg),
               });
 

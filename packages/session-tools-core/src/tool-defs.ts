@@ -42,6 +42,7 @@ import { handleListBackgroundTasks } from './handlers/list-background-tasks.ts';
 import { handleCreateTask } from './handlers/create-task.ts';
 import { handleSendAgentMessage } from './handlers/send-agent-message.ts';
 import { handleListMessagingChannels, handleUnbindMessagingChannel } from './handlers/messaging.ts';
+import { handleManageResearchScope } from './handlers/manage-research-scope.ts';
 
 // ============================================================
 // Canonical Zod Schemas
@@ -49,6 +50,14 @@ import { handleListMessagingChannels, handleUnbindMessagingChannel } from './han
 
 export const SubmitPlanSchema = z.object({
   planPath: z.string().describe('Absolute path to the plan markdown file you wrote'),
+});
+
+export const ManageResearchScopeSchema = z.object({
+  action: z.enum(['list', 'upsert', 'remove']).describe('List, add/update, or remove research scope entries'),
+  kind: z.enum(['watchlist', 'sector']).optional().describe('Required for upsert and remove'),
+  id: z.string().optional().describe('Stable item ID for updates or removals'),
+  confirm: z.boolean().optional().describe('Must be true for removal after explicit user confirmation'),
+  item: z.record(z.string(), z.unknown()).optional().describe('Fields to create or merge into an existing item'),
 });
 
 export const ConfigValidateSchema = z.object({
@@ -243,6 +252,8 @@ export const UnbindMessagingChannelSchema = z.object({
 // ============================================================
 
 export const TOOL_DESCRIPTIONS = {
+  manage_research_scope: `Manage the current Workspace research scope, not market prices.
+Use action=list to inspect watchlist companies, sectors, and their folderPath values. Use action=upsert with kind and item to add or update an entry; creating an item also creates its Workspace research folder, while updating preserves the existing folder. When updating, pass id and only fields that should change. Use action=remove only after the user explicitly asked to remove the item, and pass id plus confirm=true; removal keeps the folder and its files. Watchlist fields include name, code, market, group, status, tags, thesis, relatedResources, lastResearchedAt. Sector fields include name, attention, status, thesis, companyIds, relatedResources, lastResearchedAt. This tool never supplies or fabricates market quotes, prices, or returns.`,
   SubmitPlan: `Submit a plan for user review.
 
 Call this after you have written your plan to a markdown file using the Write tool.
@@ -566,6 +577,7 @@ export type SessionToolDef = RegistrySessionToolDef | BackendSessionToolDef;
 // ============================================================
 
 export const SESSION_TOOL_DEFS: SessionToolDef[] = [
+  { name: 'manage_research_scope', description: TOOL_DESCRIPTIONS.manage_research_scope, inputSchema: ManageResearchScopeSchema, executionMode: 'registry', safeMode: 'block', handler: handleManageResearchScope },
   { name: 'SubmitPlan', description: TOOL_DESCRIPTIONS.SubmitPlan, inputSchema: SubmitPlanSchema, executionMode: 'registry', safeMode: 'allow', handler: handleSubmitPlan },
   { name: 'config_validate', description: TOOL_DESCRIPTIONS.config_validate, inputSchema: ConfigValidateSchema, executionMode: 'registry', safeMode: 'allow', readOnly: true, handler: handleConfigValidate },
   { name: 'skill_validate', description: TOOL_DESCRIPTIONS.skill_validate, inputSchema: SkillValidateSchema, executionMode: 'registry', safeMode: 'allow', readOnly: true, handler: handleSkillValidate },

@@ -25,6 +25,7 @@ import { registerTasksHandlers } from './tasks'
 import { registerTransferHandlers } from './transfer'
 import { registerWorkspaceCoreHandlers } from './workspace'
 import { registerMessagingHandlers } from './messaging'
+import { registerResearchScopeHandlers } from './research-scope'
 
 export function registerCoreRpcHandlers(
   server: RpcServer,
@@ -39,6 +40,7 @@ export function registerCoreRpcHandlers(
   registerOAuthHandlers(server, deps)
   registerOnboardingHandlers(server, deps)
   registerResourcesHandlers(server, deps)
+  registerResearchScopeHandlers(server, deps)
   registerSessionsHandlers(server, deps)
   if (serverCtx) registerServerHandlers(server, deps, serverCtx)
   registerSettingsHandlers(server, deps)

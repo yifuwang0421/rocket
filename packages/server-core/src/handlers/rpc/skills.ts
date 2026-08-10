@@ -9,6 +9,7 @@ export const HANDLED_CHANNELS = [
   RPC_CHANNELS.skills.GET,
   RPC_CHANNELS.skills.GET_FILES,
   RPC_CHANNELS.skills.DELETE,
+  RPC_CHANNELS.skills.SET_ENABLED,
   RPC_CHANNELS.skills.OPEN_EDITOR,
   RPC_CHANNELS.skills.OPEN_FINDER,
 ] as const
@@ -90,6 +91,18 @@ export function registerSkillsHandlers(server: RpcServer, deps: HandlerDeps): vo
     const { deleteSkill } = await import('@rocket/shared/skills')
     deleteSkill(workspace.rootPath, skillSlug)
     deps.platform.logger?.info(`Deleted skill: ${skillSlug}`)
+  })
+
+  // Enable or disable a workspace skill. Global/project skills are read-only here.
+  server.handle(RPC_CHANNELS.skills.SET_ENABLED, async (_ctx, workspaceId: string, skillSlug: string, enabled: boolean) => {
+    const workspace = getWorkspaceByNameOrId(workspaceId)
+    if (!workspace) throw new Error('Workspace not found')
+
+    const { setSkillEnabled } = await import('@rocket/shared/skills')
+    if (!setSkillEnabled(workspace.rootPath, skillSlug, enabled)) {
+      throw new Error('Workspace skill not found or could not be updated')
+    }
+    deps.platform.logger?.info(`${enabled ? 'Enabled' : 'Disabled'} skill: ${skillSlug}`)
   })
 
   // Open skill SKILL.md in editor

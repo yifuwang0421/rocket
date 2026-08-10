@@ -278,9 +278,12 @@ export class WindowManager {
     window.webContents.on('render-process-gone', (_e, d) =>
       windowLog.error(`[renderer] crashed: ${d.reason}`)
     )
-    window.webContents.on('console-message', (_e, l, msg) =>
-      windowLog.info(`[renderer:${l}] ${msg}`)
-    )
+
+    // Do not mirror `console-message` into the main logger. Renderer logs are
+    // already collected by electron-log's preload/IPC path. Mirroring console
+    // output here duplicates every record and, when main-to-renderer logging is
+    // enabled, forms a self-amplifying feedback loop that can saturate the CPU,
+    // disk, and Windows UI thread while the window enters native move/resize.
 
     // Open external links in default browser, but never hand known-dangerous
     // schemes directly to shell.openExternal. Markdown normal-clicks go through

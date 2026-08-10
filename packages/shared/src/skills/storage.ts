@@ -11,6 +11,7 @@ import {
   readdirSync,
   rmSync,
   statSync,
+  writeFileSync,
 } from 'fs';
 import { homedir } from 'os';
 import { join } from 'path';
@@ -82,6 +83,7 @@ function parseSkillFile(content: string): { metadata: SkillMetadata; body: strin
       metadata: {
         name: parsed.data.name as string,
         description: parsed.data.description as string,
+        enabled: parsed.data.enabled !== false,
         globs: parsed.data.globs as string[] | undefined,
         alwaysAllow: parsed.data.alwaysAllow as string[] | undefined,
         icon,
@@ -246,6 +248,11 @@ export function loadAllSkills(workspaceRoot: string, projectRoot?: string): Load
   return result;
 }
 
+/** Load only skills that agents are allowed to invoke. */
+export function loadEnabledSkills(workspaceRoot: string, projectRoot?: string): LoadedSkill[] {
+  return loadAllSkills(workspaceRoot, projectRoot).filter(skill => skill.metadata.enabled !== false);
+}
+
 /**
  * Load a single skill by slug from all sources (project > workspace > global).
  * Unlike loadAllSkills(), this only reads the specific slug directory — O(1) not O(N).
@@ -259,15 +266,16 @@ export function loadSkillBySlug(workspaceRoot: string, slug: string, projectRoot
   if (projectRoot) {
     const projectSkillsDir = join(projectRoot, PROJECT_AGENT_SKILLS_DIR);
     const skill = loadSkillFromDir(projectSkillsDir, slug, 'project');
-    if (skill) return skill;
+    if (skill) return skill.metadata.enabled !== false ? skill : null;
   }
 
   // Medium priority: workspace
   const workspaceSkill = loadSkillFromDir(getWorkspaceSkillsPath(workspaceRoot), slug, 'workspace');
-  if (workspaceSkill) return workspaceSkill;
+  if (workspaceSkill) return workspaceSkill.metadata.enabled !== false ? workspaceSkill : null;
 
   // Lowest priority: global
-  return loadSkillFromDir(GLOBAL_AGENT_SKILLS_DIR, slug, 'global');
+  const globalSkill = loadSkillFromDir(GLOBAL_AGENT_SKILLS_DIR, slug, 'global');
+  return globalSkill?.metadata.enabled !== false ? globalSkill : null;
 }
 
 /**
@@ -305,6 +313,22 @@ export function deleteSkill(workspaceRoot: string, slug: string): boolean {
 
   try {
     rmSync(skillDir, { recursive: true });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** Enable or disable a workspace skill by updating its SKILL.md frontmatter. */
+export function setSkillEnabled(workspaceRoot: string, slug: string, enabled: boolean): boolean {
+  const skillFile = join(getWorkspaceSkillsPath(workspaceRoot), slug, 'SKILL.md');
+  if (!existsSync(skillFile)) return false;
+
+  try {
+    const parsed = matter(readFileSync(skillFile, 'utf-8'));
+    parsed.data.enabled = enabled;
+    writeFileSync(skillFile, matter.stringify(parsed.content, parsed.data), 'utf-8');
+    invalidateSkillsCache();
     return true;
   } catch {
     return false;

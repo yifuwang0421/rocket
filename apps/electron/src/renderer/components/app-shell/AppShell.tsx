@@ -75,6 +75,8 @@ import { MainContentPanel } from "./MainContentPanel"
 import { BoardListToggle } from "./kanban/BoardListToggle"
 import { PanelStackContainer } from "./PanelStackContainer"
 import { ThreePanelLayout } from "./ThreePanelLayout"
+import { ResearchLayoutErrorBoundary } from "./ResearchLayoutErrorBoundary"
+import { shouldUseResearchLayout } from "./research-layout-mode"
 import { CompactSessionListFilter } from "./CompactSessionListFilter"
 import type { ChatDisplayHandle } from "./ChatDisplay"
 import { LeftSidebar } from "./LeftSidebar"
@@ -698,9 +700,9 @@ function AppShellContent({
     return new Map<SessionStatusId, FilterMode>(Object.entries(entry) as [SessionStatusId, FilterMode][])
   }, [viewFiltersMap, sessionFilterKey])
 
-  // Keep the proven classic shell as the P0 default. The P1 research layout is
-  // still a prototype and can be enabled explicitly for development previews.
-  const isResearchLayout = import.meta.env.VITE_ROCKET_RESEARCH_LAYOUT === '1'
+  // P1 makes the research workbench the default. Keep the classic shell as an
+  // explicit rollback path for one release cycle with VITE_ROCKET_RESEARCH_LAYOUT=0.
+  const isResearchLayout = shouldUseResearchLayout(import.meta.env.VITE_ROCKET_RESEARCH_LAYOUT)
 
   // Derive current view's label filter as a Map<string, FilterMode>
   const labelFilter = useMemo(() => {
@@ -2389,7 +2391,9 @@ function AppShellContent({
 
       {/* === OUTER LAYOUT: Research layout or classic layout === */}
       {isResearchLayout ? (
-        <ThreePanelLayout />
+        <ResearchLayoutErrorBoundary resetKey={activeWorkspaceId}>
+          <ThreePanelLayout />
+        </ResearchLayoutErrorBoundary>
       ) : (
       <div
         ref={shellRef}

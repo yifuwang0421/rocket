@@ -299,6 +299,8 @@ export interface ChatOptions {
   isRetry?: boolean;
   /** Override thinking level for this message only */
   thinkingOverride?: ThinkingLevel;
+  /** Validated workspace research references for this turn; never contains file bodies. */
+  researchContexts?: import('../../protocol/dto.ts').WorkspaceAgentContextRef[];
 }
 
 /**

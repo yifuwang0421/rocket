@@ -7,8 +7,8 @@ import {
   DrawerContent,
   DrawerHeader,
   DrawerTitle,
-  DrawerClose,
 } from '@/components/ui/drawer'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { cn } from '@/lib/utils'
 import {
   PERMISSION_MODE_CONFIG,
@@ -71,11 +71,13 @@ const MODE_LABEL_KEYS: Record<PermissionMode, { name: string; short: string; des
 interface CompactPermissionModeSelectorProps {
   permissionMode: PermissionMode
   onPermissionModeChange?: (mode: PermissionMode) => void
+  presentation?: 'drawer' | 'popover'
 }
 
 export function CompactPermissionModeSelector({
   permissionMode,
   onPermissionModeChange,
+  presentation = 'drawer',
 }: CompactPermissionModeSelectorProps) {
   const { t } = useTranslation()
   const [open, setOpen] = React.useState(false)
@@ -94,56 +96,75 @@ export function CompactPermissionModeSelector({
 
   const style = MODE_STYLES[optimisticMode]
 
+  const trigger = (
+    <button
+      type="button"
+      aria-label={`${t('mode.permissionMode')}: ${t(MODE_LABEL_KEYS[optimisticMode].name)}`}
+      className={cn(
+        'h-7 pl-2 pr-2.5 text-xs font-medium rounded-[6px] flex items-center gap-1.5 shadow-tinted outline-none select-none shrink-0',
+        style.className,
+      )}
+      style={{ '--shadow-color': style.shadowVar } as React.CSSProperties}
+    >
+      <ModeIcon mode={optimisticMode} className="h-3.5 w-3.5" />
+      <span>{t(MODE_LABEL_KEYS[optimisticMode].short)}</span>
+    </button>
+  )
+
+  const options = (
+    <div className={cn('flex flex-col gap-1', presentation === 'drawer' ? 'px-4 pb-6' : 'p-1')}>
+      {PERMISSION_MODE_ORDER.map((mode) => {
+        const isSelected = mode === optimisticMode
+        return (
+          <button
+            type="button"
+            key={mode}
+            className={cn(
+              'flex items-center gap-3 w-full px-3 py-3 rounded-lg text-left transition-colors',
+              isSelected ? 'bg-foreground/5' : 'hover:bg-foreground/5',
+            )}
+            onClick={() => handleSelect(mode)}
+          >
+            <span className={cn('shrink-0', PERMISSION_MODE_CONFIG[mode].colorClass.text)}>
+              <ModeIcon mode={mode} className="h-5 w-5" />
+            </span>
+            <div className="flex-1 min-w-0">
+              <div className="text-sm font-medium">{t(MODE_LABEL_KEYS[mode].name)}</div>
+              <div className="text-xs text-muted-foreground">{t(MODE_LABEL_KEYS[mode].desc)}</div>
+            </div>
+            {isSelected && <Check className="h-4 w-4 shrink-0 text-foreground/60" />}
+          </button>
+        )
+      })}
+    </div>
+  )
+
+  if (presentation === 'popover') {
+    return (
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>{trigger}</PopoverTrigger>
+        <PopoverContent
+          side="top"
+          align="start"
+          sideOffset={8}
+          className="w-[320px] max-w-[calc(100vw-24px)] overflow-hidden p-0"
+        >
+          {options}
+        </PopoverContent>
+      </Popover>
+    )
+  }
+
   return (
     <Drawer open={open} onOpenChange={setOpen}>
-      <DrawerTrigger asChild>
-        <button
-          type="button"
-          aria-label={`${t('mode.permissionMode')}: ${t(MODE_LABEL_KEYS[optimisticMode].name)}`}
-          className={cn(
-            "h-7 pl-2 pr-2.5 text-xs font-medium rounded-[6px] flex items-center gap-1.5 shadow-tinted outline-none select-none shrink-0",
-            style.className,
-          )}
-          style={{ '--shadow-color': style.shadowVar } as React.CSSProperties}
-        >
-          <ModeIcon mode={optimisticMode} className="h-3.5 w-3.5" />
-          <span>{t(MODE_LABEL_KEYS[optimisticMode].short)}</span>
-        </button>
-      </DrawerTrigger>
+      <DrawerTrigger asChild>{trigger}</DrawerTrigger>
 
       <DrawerContent>
         <DrawerHeader>
           <DrawerTitle>{t('mode.permissionMode')}</DrawerTitle>
         </DrawerHeader>
 
-        <div className="px-4 pb-6 flex flex-col gap-1">
-          {PERMISSION_MODE_ORDER.map((mode) => {
-            const isSelected = mode === optimisticMode
-            return (
-              <DrawerClose asChild key={mode}>
-                <button
-                  type="button"
-                  className={cn(
-                    "flex items-center gap-3 w-full px-3 py-3 rounded-lg text-left transition-colors",
-                    isSelected ? "bg-foreground/5" : "hover:bg-foreground/5",
-                  )}
-                  onClick={() => handleSelect(mode)}
-                >
-                  <span className={cn("shrink-0", PERMISSION_MODE_CONFIG[mode].colorClass.text)}>
-                    <ModeIcon mode={mode} className="h-5 w-5" />
-                  </span>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-sm font-medium">{t(MODE_LABEL_KEYS[mode].name)}</div>
-                    <div className="text-xs text-muted-foreground">{t(MODE_LABEL_KEYS[mode].desc)}</div>
-                  </div>
-                  {isSelected && (
-                    <Check className="h-4 w-4 shrink-0 text-foreground/60" />
-                  )}
-                </button>
-              </DrawerClose>
-            )
-          })}
-        </div>
+        {options}
       </DrawerContent>
     </Drawer>
   )

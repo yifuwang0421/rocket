@@ -680,6 +680,54 @@ describe('runPreToolUseChecks', () => {
       expect(debugMessages.some(m => m.includes('linear'))).toBe(true);
     });
   });
+
+  describe('workspace research context guard', () => {
+    const context = {
+      workspaceId: 'test-ws',
+      relativePath: 'notes/thesis.md',
+      name: 'thesis.md',
+      area: 'notes' as const,
+      kind: 'markdown' as const,
+      mediaType: 'text/markdown',
+      size: 12,
+      modifiedAt: 1,
+      version: 'expected-version',
+      writePolicy: 'read-only' as const,
+    };
+
+    it('blocks writes to an attached read-only resource', () => {
+      const result = runPreToolUseChecks(createInput({
+        toolName: 'Edit',
+        input: { file_path: '/test/workspace/notes/thesis.md', old_string: 'a', new_string: 'b' },
+        researchContexts: [context],
+      }));
+
+      expect(result.type).toBe('block');
+      if (result.type === 'block') expect(result.reason).toContain('read-only');
+    });
+
+    it('blocks Bash access to attached research resources', () => {
+      const result = runPreToolUseChecks(createInput({
+        toolName: 'Bash',
+        input: { command: 'type notes/thesis.md' },
+        researchContexts: [{ ...context, writePolicy: 'versioned-write' }],
+      }));
+
+      expect(result.type).toBe('block');
+      if (result.type === 'block') expect(result.reason).toContain('Bash cannot access');
+    });
+
+    it('blocks a versioned write when the file is missing or changed', () => {
+      const result = runPreToolUseChecks(createInput({
+        toolName: 'Write',
+        input: { file_path: '/test/workspace/notes/thesis.md', content: 'new' },
+        researchContexts: [{ ...context, writePolicy: 'versioned-write' }],
+      }));
+
+      expect(result.type).toBe('block');
+      if (result.type === 'block') expect(result.reason).toContain('no longer exists');
+    });
+  });
 });
 
 // ============================================================

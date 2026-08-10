@@ -64,6 +64,15 @@ export function getSessionTitle(session: SessionLike | SessionMeta): string {
   return i18next.t('session.defaultTitle', 'New chat')
 }
 
+/** A never-used, non-processing session can be removed without confirmation when the user leaves it. */
+export function isDisposableEmptySession(session: SessionMeta | undefined, draft?: string | null): boolean {
+  if (!session || session.isProcessing || draft?.trim()) return false
+  return !session.name
+    && !session.preview
+    && !session.lastFinalMessageId
+    && (session.messageCount ?? 0) === 0
+}
+
 /**
  * Get a compact preview line for session-list rows.
  * Prefers the stored preview/first user message, but avoids duplicating the title.

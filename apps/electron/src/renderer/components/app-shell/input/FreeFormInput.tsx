@@ -11,6 +11,8 @@ import {
   ChevronUp,
   AlertCircle,
   Image as ImageIcon,
+  FileText,
+  X,
 } from 'lucide-react'
 import { Icon_Home, Spinner } from '@rocket/ui'
 
@@ -70,6 +72,7 @@ import { ConnectionIcon } from '@/components/icons/ConnectionIcon'
 import { FreeFormInputContextBadge } from './FreeFormInputContextBadge'
 import { derivePickerMode } from './picker-mode'
 import type { FileAttachment, LoadedSource, LoadedSkill } from '../../../../shared/types'
+import type { WorkspaceAgentContextRef } from '@rocket/shared/protocol'
 import type { PermissionMode } from '@rocket/shared/agent/modes'
 import { type ThinkingLevel, THINKING_LEVELS, getThinkingLevelNameKey } from '@rocket/shared/agent/thinking-levels'
 import { useEscapeInterrupt } from '@/context/EscapeInterruptContext'
@@ -135,7 +138,10 @@ export interface FreeFormInputProps {
   /** Whether the session is currently processing */
   isProcessing?: boolean
   /** Callback when message is submitted (skillSlugs from @mentions) */
-  onSubmit: (message: string, attachments?: FileAttachment[], skillSlugs?: string[]) => void
+  onSubmit: (message: string, attachments?: FileAttachment[], skillSlugs?: string[], researchContexts?: WorkspaceAgentContextRef[]) => void
+  researchContexts?: WorkspaceAgentContextRef[]
+  onRemoveResearchContext?: (relativePath: string) => void
+  beforeResearchContextSubmit?: () => Promise<WorkspaceAgentContextRef[] | false>
   /** Callback to stop processing. Pass silent=true to skip "Response interrupted" message */
   onStop?: (silent?: boolean) => void
   /** External ref for the input */
@@ -231,6 +237,8 @@ export interface FreeFormInputProps {
    * behavior.
    */
   enableCompactModelPicker?: boolean
+  /** Keep compact controls while choosing drawer or anchored desktop popovers. */
+  compactPickerPresentation?: 'drawer' | 'popover'
   // Connection selection (hierarchical connection → model selector)
   /** Current LLM connection slug (locked after first message) */
   currentConnection?: string
@@ -300,11 +308,15 @@ export function FreeFormInput({
   onFollowUpIndexClick,
   compactMode = false,
   enableCompactModelPicker = false,
+  compactPickerPresentation = 'drawer',
   currentConnection,
   onConnectionChange,
   connectionUnavailable = false,
   isCollapsedInCompact = false,
   onRequestExpand,
+  researchContexts = [],
+  onRemoveResearchContext,
+  beforeResearchContextSubmit,
 }: FreeFormInputProps) {
   const { t } = useTranslation()
 
@@ -1246,7 +1258,7 @@ export function FreeFormInput({
   }
 
   // Submit message - backend handles queueing and interruption
-  const submitMessage = React.useCallback(() => {
+  const submitMessage = React.useCallback(async () => {
     const hasContent = input.trim() || attachments.length > 0 || followUpItems.length > 0
     if (!hasContent || disabled) return false
 
@@ -1269,10 +1281,16 @@ export function FreeFormInput({
 
     const attachmentSnapshot = attachments
 
+    const submittedResearchContexts = beforeResearchContextSubmit
+      ? await beforeResearchContextSubmit()
+      : researchContexts
+    if (submittedResearchContexts === false) return false
+
     onSubmit(
       input.trim(),
       attachmentSnapshot.length > 0 ? attachmentSnapshot : undefined,
-      mentions.skills.length > 0 ? mentions.skills : undefined
+      mentions.skills.length > 0 ? mentions.skills : undefined,
+      submittedResearchContexts.length > 0 ? submittedResearchContexts : undefined,
     )
     setInput('')
     setAttachments([])
@@ -1288,14 +1306,14 @@ export function FreeFormInput({
     })
 
     return true
-  }, [input, attachments, followUpItems, disabled, disableSend, onInputChange, onAttachmentsChange, onSubmit, skills, sources, optimisticSourceSlugs, onSourcesChange, onWorkingDirectoryChange, homeDir])
+  }, [input, attachments, followUpItems, disabled, disableSend, onInputChange, onAttachmentsChange, onSubmit, skills, sources, optimisticSourceSlugs, onSourcesChange, onWorkingDirectoryChange, homeDir, beforeResearchContextSubmit, researchContexts])
 
   // Listen for craft:submit-input events (simulate pressing the Send button)
   React.useEffect(() => {
     const handleSubmitInput = (e: CustomEvent<{ sessionId?: string }>) => {
       const targetSessionId = e.detail?.sessionId
       if (!shouldHandleScopedInputEvent({ sessionId, isFocusedPanel, targetSessionId })) return
-      submitMessage()
+      void submitMessage()
     }
 
     window.addEventListener('craft:submit-input', handleSubmitInput as EventListener)
@@ -1304,7 +1322,7 @@ export function FreeFormInput({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    submitMessage()
+    await submitMessage()
   }
 
   const handleStop = (silent = false) => {
@@ -1666,6 +1684,38 @@ export function FreeFormInput({
           loadingCount={loadingCount}
         />
 
+        <AnimatePresence initial={false}>
+          {researchContexts.length > 0 && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              className="overflow-hidden px-3 pt-2"
+            >
+              <div className="flex flex-wrap gap-1">
+                {researchContexts.map(context => (
+                  <div
+                    key={context.relativePath}
+                    title={context.relativePath}
+                    className="inline-flex max-w-full items-center gap-1.5 rounded-[6px] bg-accent/10 px-2 py-1 text-[11px] text-foreground/75"
+                  >
+                    <FileText className="h-3 w-3 shrink-0 text-accent" />
+                    <span className="truncate">{context.name}</span>
+                    <button
+                      type="button"
+                      aria-label={`移除上下文 ${context.name}`}
+                      className="rounded-sm p-0.5 hover:bg-foreground/10"
+                      onClick={() => onRemoveResearchContext?.(context.relativePath)}
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         {/* Follow-up context chips */}
         <AnimatePresence initial={false}>
           {followUpItems.length > 0 && (
@@ -1809,6 +1859,7 @@ export function FreeFormInput({
             <CompactPermissionModeSelector
               permissionMode={permissionMode}
               onPermissionModeChange={onPermissionModeChange}
+              presentation={compactPickerPresentation}
             />
           )}
           {enableCompactModelPicker && (
@@ -1822,6 +1873,7 @@ export function FreeFormInput({
               isEmptySession={isEmptySession}
               connectionUnavailable={connectionUnavailable}
               contextStatus={contextStatus}
+              presentation={compactPickerPresentation}
             />
           )}
           <FreeFormInputContextBadge
@@ -1892,30 +1944,58 @@ export function FreeFormInput({
                 onClick={() => setSourceDropdownOpen(prev => !prev)}
                 tooltip={t("chat.sourcesTooltip")}
               />
-              <CompactSourceSelector
-                open={sourceDropdownOpen}
-                onOpenChange={setSourceDropdownOpen}
-                sources={sources}
-                selectedSlugs={optimisticSourceSlugs}
-                onToggleSlug={(slug) => {
-                  const isEnabled = optimisticSourceSlugs.includes(slug)
-                  const newSlugs = isEnabled
-                    ? optimisticSourceSlugs.filter(currentSlug => currentSlug !== slug)
-                    : [...optimisticSourceSlugs, slug]
-                  setOptimisticSourceSlugs(newSlugs)
-                  onSourcesChange?.(newSlugs)
-                }}
-              />
+              {compactPickerPresentation === 'drawer' ? (
+                <CompactSourceSelector
+                  open={sourceDropdownOpen}
+                  onOpenChange={setSourceDropdownOpen}
+                  sources={sources}
+                  selectedSlugs={optimisticSourceSlugs}
+                  onToggleSlug={(slug) => {
+                    const isEnabled = optimisticSourceSlugs.includes(slug)
+                    const newSlugs = isEnabled
+                      ? optimisticSourceSlugs.filter(currentSlug => currentSlug !== slug)
+                      : [...optimisticSourceSlugs, slug]
+                    setOptimisticSourceSlugs(newSlugs)
+                    onSourcesChange?.(newSlugs)
+                  }}
+                />
+              ) : (
+                <SourceSelectorPopover
+                  open={sourceDropdownOpen}
+                  onOpenChange={setSourceDropdownOpen}
+                  anchorRef={sourceButtonRef}
+                  sources={sources}
+                  selectedSlugs={optimisticSourceSlugs}
+                  onToggleSlug={(slug) => {
+                    const isEnabled = optimisticSourceSlugs.includes(slug)
+                    const newSlugs = isEnabled
+                      ? optimisticSourceSlugs.filter(currentSlug => currentSlug !== slug)
+                      : [...optimisticSourceSlugs, slug]
+                    setOptimisticSourceSlugs(newSlugs)
+                    onSourcesChange?.(newSlugs)
+                  }}
+                />
+              )}
             </div>
           )}
           {onWorkingDirectoryChange && (
-            <CompactWorkingDirectorySelector
-              workingDirectory={workingDirectory}
-              onWorkingDirectoryChange={onWorkingDirectoryChange}
-              sessionFolderPath={sessionFolderPath}
-              isEmptySession={false}
-              workspaceId={workspaceId}
-            />
+            compactPickerPresentation === 'drawer' ? (
+              <CompactWorkingDirectorySelector
+                workingDirectory={workingDirectory}
+                onWorkingDirectoryChange={onWorkingDirectoryChange}
+                sessionFolderPath={sessionFolderPath}
+                isEmptySession={false}
+                workspaceId={workspaceId}
+              />
+            ) : (
+              <WorkingDirectoryBadge
+                workingDirectory={workingDirectory}
+                onWorkingDirectoryChange={onWorkingDirectoryChange}
+                sessionFolderPath={sessionFolderPath}
+                isEmptySession={false}
+                workspaceId={workspaceId}
+              />
+            )
           )}
           </div>
           )}

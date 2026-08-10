@@ -219,6 +219,27 @@ import type {
   TestAutomationResult,
   WindowCloseRequest,
   DirectoryListingResult,
+  SaveWorkspaceMarkdownInput,
+  WorkspaceFileImportResult,
+  WorkspaceMarkdownDocument,
+  WorkspaceResearchPreview,
+  WorkspaceAgentContextRef,
+  WorkspaceResearchSearchInput,
+  WorkspaceResearchSearchResult,
+  WorkspaceResearchIndexRebuildResult,
+  WorkspaceResearchScope,
+  StockSearchInput,
+  StockSearchSuggestion,
+  ResearchScopeFolderInput,
+  CreateResearchScopeFolderEntryInput,
+  ImportResearchScopeFolderInput,
+  WorkspaceResearchFolderEntry,
+  WorkspaceResearchFolderList,
+  UpsertWatchlistItemInput,
+  UpsertSectorItemInput,
+  RemoveResearchScopeItemInput,
+  WorkspaceResearchArea,
+  WorkspaceResearchFileList,
   RemoteSessionTransferPayload,
   ImportRemoteSessionTransferResult,
 } from '@rocket/shared/protocol'
@@ -332,12 +353,30 @@ export interface ElectronAPI {
   /** Read an image file as a size-bounded preview data URL for lightweight thumbnail rendering. */
   readFilePreviewDataUrl(path: string, maxSize?: number): Promise<string>
   openFileDialog(): Promise<string[]>
+  listWorkspaceFiles(workspaceId: string, area: WorkspaceResearchArea): Promise<WorkspaceResearchFileList>
+  readWorkspaceMarkdown(workspaceId: string, relativePath: string): Promise<WorkspaceMarkdownDocument>
+  readWorkspacePreview(workspaceId: string, relativePath: string): Promise<WorkspaceResearchPreview>
+  getWorkspaceAgentContext(workspaceId: string, relativePath: string): Promise<WorkspaceAgentContextRef>
+  searchWorkspaceResearch(input: WorkspaceResearchSearchInput): Promise<WorkspaceResearchSearchResult>
+  rebuildWorkspaceResearchIndex(workspaceId: string): Promise<WorkspaceResearchIndexRebuildResult>
+  saveWorkspaceMarkdown(input: SaveWorkspaceMarkdownInput): Promise<WorkspaceMarkdownDocument>
+  createWorkspaceMarkdown(workspaceId: string, area: WorkspaceResearchArea, name: string): Promise<WorkspaceMarkdownDocument>
+  importToWorkspace(workspaceId: string, area: WorkspaceResearchArea, sourcePaths: string[]): Promise<WorkspaceFileImportResult>
   readFileAttachment(path: string): Promise<FileAttachment | null>
   /** Re-read a user-attached file by absolute path (bypasses workspace-dir validation).
    *  Used only by draft hydration for paths the user explicitly picked via OS dialog / drag. */
   readUserAttachment(path: string): Promise<FileAttachment | null>
   storeAttachment(sessionId: string, attachment: FileAttachment): Promise<import('../../../../packages/core/src/types/index.ts').StoredAttachment>
   generateThumbnail(base64: string, mimeType: string): Promise<string | null>
+  getWorkspaceResearchScope(workspaceId: string): Promise<WorkspaceResearchScope>
+  searchStockSuggestions(input: StockSearchInput): Promise<StockSearchSuggestion[]>
+  listWorkspaceResearchScopeFolder(input: ResearchScopeFolderInput): Promise<WorkspaceResearchFolderList>
+  createWorkspaceResearchScopeFolderEntry(input: CreateResearchScopeFolderEntryInput): Promise<WorkspaceResearchFolderEntry>
+  importToWorkspaceResearchScopeFolder(input: ImportResearchScopeFolderInput): Promise<WorkspaceFileImportResult>
+  upsertWorkspaceWatchlistItem(input: UpsertWatchlistItemInput): Promise<WorkspaceResearchScope>
+  removeWorkspaceWatchlistItem(input: RemoveResearchScopeItemInput): Promise<WorkspaceResearchScope>
+  upsertWorkspaceSectorItem(input: UpsertSectorItemInput): Promise<WorkspaceResearchScope>
+  removeWorkspaceSectorItem(input: RemoveResearchScopeItemInput): Promise<WorkspaceResearchScope>
   /** Returns the absolute filesystem path for a File (only works for file-picker / OS-drag Files). */
   getFilePath(file: File): string | null
 
@@ -501,6 +540,7 @@ export interface ElectronAPI {
   getSkills(workspaceId: string, workingDirectory?: string): Promise<LoadedSkill[]>
   getSkillFiles?(workspaceId: string, skillSlug: string): Promise<SkillFile[]>
   deleteSkill(workspaceId: string, skillSlug: string): Promise<void>
+  setSkillEnabled(workspaceId: string, skillSlug: string, enabled: boolean): Promise<void>
   openSkillInEditor(workspaceId: string, skillSlug: string): Promise<void>
   openSkillInFinder(workspaceId: string, skillSlug: string): Promise<void>
 

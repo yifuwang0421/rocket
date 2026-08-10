@@ -1247,6 +1247,7 @@ export class PiAgent extends BaseAgent {
       permissionManager: this.permissionManager,
       prerequisiteManager: this.prerequisiteManager,
       rtkContext,
+      researchContexts: this.currentResearchContexts,
       onDebug: (msg) => this.debug(`PreToolUse(sessionId=${sessionId}): ${msg}`),
     });
 
@@ -1320,6 +1321,7 @@ export class PiAgent extends BaseAgent {
           permissionManager: this.permissionManager,
           prerequisiteManager: this.prerequisiteManager,
           rtkContext,
+          researchContexts: this.currentResearchContexts,
           onDebug: (msg) => this.debug(`PreToolUse(sessionId=${sessionId}): ${msg}`),
         });
 

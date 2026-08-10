@@ -29,12 +29,21 @@ import { kanbanEditorTargetAtom } from '@/atoms/kanban'
 import { getSessionTitle } from '@/utils/session'
 // Model resolution: connection.defaultModel (no hardcoded defaults)
 import { resolveEffectiveConnectionSlug, isSessionConnectionUnavailable } from '@config/llm-connections'
+import type { WorkspaceAgentContextRef } from '@rocket/shared/protocol'
 
 export interface ChatPageProps {
   sessionId: string
+  /**
+   * Compact mode controls the chat layout, but an embedded desktop panel can
+   * still use the regular Craft popovers instead of viewport-wide drawers.
+   */
+  overlayPresentation?: 'auto' | 'popover'
+  researchContexts?: WorkspaceAgentContextRef[]
+  onRemoveResearchContext?: (relativePath: string) => void
+  beforeResearchContextSubmit?: () => Promise<WorkspaceAgentContextRef[] | false>
 }
 
-const ChatPage = React.memo(function ChatPage({ sessionId }: ChatPageProps) {
+const ChatPage = React.memo(function ChatPage({ sessionId, overlayPresentation = 'auto', researchContexts, onRemoveResearchContext, beforeResearchContextSubmit }: ChatPageProps) {
   const { t } = useTranslation()
   // Diagnostic: mark when component runs
   React.useLayoutEffect(() => {
@@ -81,6 +90,7 @@ const ChatPage = React.memo(function ChatPage({ sessionId }: ChatPageProps) {
     onChatMatchInfoChange,
     isFocusedPanel,
   } = useAppShellContext()
+  const useDrawerOverlays = !!isCompactMode && overlayPresentation === 'auto'
 
   // Use the unified session options hook for clean access
   const {
@@ -608,7 +618,9 @@ const ChatPage = React.memo(function ChatPage({ sessionId }: ChatPageProps) {
       <SessionInfoPopover
         sessionId={sessionId}
         sessionFolderPath={session?.sessionFolderPath}
-        presentation="drawer"
+        presentation={useDrawerOverlays ? 'drawer' : 'popover'}
+        side="bottom"
+        align="end"
         trigger={(
           <PanelHeaderCenterButton
             icon={<Info className="h-4 w-4" />}
@@ -617,7 +629,7 @@ const ChatPage = React.memo(function ChatPage({ sessionId }: ChatPageProps) {
         )}
       />
     )
-  }, [isCompactMode, sessionId, session?.sessionFolderPath, sessionMeta])
+  }, [isCompactMode, sessionId, session?.sessionFolderPath, sessionMeta, useDrawerOverlays])
 
   // Pencil opens the Task editor for orchestrator sessions; rendered before the
   // share/info action. The slot div has no gap of its own, so compose with one here.
@@ -644,7 +656,7 @@ const ChatPage = React.memo(function ChatPage({ sessionId }: ChatPageProps) {
   // Desktop uses Radix DropdownMenu via PanelHeader; compact mode uses a
   // vaul Drawer (CompactSessionMenu) so submenus aren't clipped by the
   // panel container query on narrow viewports.
-  const titleMenu = React.useMemo(() => (sessionMeta && !isCompactMode) ? (
+  const titleMenu = React.useMemo(() => (sessionMeta && !useDrawerOverlays) ? (
     <SessionMenu
       item={sessionMeta}
       sessionStatuses={sessionStatuses ?? []}
@@ -662,7 +674,7 @@ const ChatPage = React.memo(function ChatPage({ sessionId }: ChatPageProps) {
     />
   ) : null, [
     sessionMeta,
-    isCompactMode,
+    useDrawerOverlays,
     sessionStatuses,
     labels,
     handleLabelsChange,
@@ -677,7 +689,7 @@ const ChatPage = React.memo(function ChatPage({ sessionId }: ChatPageProps) {
     handleDelete,
   ])
 
-  const compactTitleMenu = React.useMemo(() => (sessionMeta && isCompactMode) ? (
+  const compactTitleMenu = React.useMemo(() => (sessionMeta && useDrawerOverlays) ? (
     <CompactSessionMenu
       title={displayTitle}
       isRegeneratingTitle={isAsyncOperationOngoing}
@@ -697,7 +709,7 @@ const ChatPage = React.memo(function ChatPage({ sessionId }: ChatPageProps) {
     />
   ) : null, [
     sessionMeta,
-    isCompactMode,
+    useDrawerOverlays,
     displayTitle,
     isAsyncOperationOngoing,
     sessionStatuses,
@@ -777,6 +789,7 @@ const ChatPage = React.memo(function ChatPage({ sessionId }: ChatPageProps) {
                 connectionUnavailable={connectionUnavailable}
                 compactMode={!!isCompactMode}
                 enableCompactModelPicker={!!isCompactMode}
+                compactPickerPresentation={overlayPresentation === 'popover' ? 'popover' : 'drawer'}
               />
             </div>
           </div>
@@ -813,11 +826,14 @@ const ChatPage = React.memo(function ChatPage({ sessionId }: ChatPageProps) {
           <ChatDisplay
             ref={chatDisplayRef}
             session={session}
-            onSendMessage={(message, attachments, skillSlugs) => {
+            onSendMessage={(message, attachments, skillSlugs, submittedResearchContexts) => {
               if (session) {
-                onSendMessage(session.id, message, attachments, skillSlugs)
+                onSendMessage(session.id, message, attachments, skillSlugs, undefined, submittedResearchContexts)
               }
             }}
+            researchContexts={researchContexts}
+            onRemoveResearchContext={onRemoveResearchContext}
+            beforeResearchContextSubmit={beforeResearchContextSubmit}
             onOpenFile={handleOpenFile}
             onOpenUrl={handleOpenUrl}
             currentModel={effectiveModel}
@@ -857,6 +873,7 @@ const ChatPage = React.memo(function ChatPage({ sessionId }: ChatPageProps) {
             connectionUnavailable={connectionUnavailable}
             compactMode={!!isCompactMode}
             enableCompactModelPicker={!!isCompactMode}
+            compactPickerPresentation={overlayPresentation === 'popover' ? 'popover' : 'drawer'}
           />
         </div>
       </div>

@@ -13,6 +13,8 @@ export interface SkillMetadata {
   name: string;
   /** Brief description shown in skill list */
   description: string;
+  /** Disabled skills stay manageable in the UI but cannot be invoked by agents. */
+  enabled?: boolean;
   /** Optional file patterns that trigger this skill */
   globs?: string[];
   /** Optional tools to always allow when skill is active */

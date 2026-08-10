@@ -409,6 +409,9 @@ export interface SessionToolContext {
    * Used by transform_data and render_template for output files.
    */
   dataPath?: string;
+
+  /** Workspace-scoped watchlist and sector research management. */
+  manageResearchScope?(input: import('./handlers/manage-research-scope.ts').ManageResearchScopeArgs): Promise<unknown>;
 }
 
 // ============================================================

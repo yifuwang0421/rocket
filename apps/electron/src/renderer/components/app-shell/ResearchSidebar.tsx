@@ -1,159 +1,247 @@
 /**
- * ResearchSidebar — left navigation panel for Rocket.
+ * Rocket research navigation.
  *
- * Styled to match the existing Rocket sidebar design system.
- * Contains: search, watchlist, sector/company tree, analysis tools,
- * notes directory, and data source management.
+ * P1-2 navigation for the workspace-scoped research layout. Research content
+ * opens as tabs; management surfaces replace the middle column without
+ * disturbing the research tab state.
  */
 
 import * as React from 'react'
+import { AnimatePresence, motion } from 'motion/react'
 import {
-  Search,
-  Star,
-  TrendingUp,
-  FolderTree,
-  Wrench,
-  FileText,
-  Database,
-  Settings,
-  LineChart,
-  BarChart3,
-  GitCompare,
-  ChevronDown,
+  BookOpen,
+  CalendarClock,
   ChevronRight,
+  Database,
+  NotebookPen,
+  Plus,
+  Settings,
+  Sparkles,
+  Star,
+  Tags,
+  Zap,
+  type LucideIcon,
 } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
+import type { WorkspaceResearchController } from '@/hooks/useWorkspaceResearchState'
+import type { ResearchSessionActions } from '@/hooks/useResearchSessionActions'
+import type { ResearchTab, StandaloneViewType } from '@/atoms/workspace-tabs'
 import { cn } from '@/lib/utils'
 
-interface NavItem {
-  id: string
-  label: string
-  icon: React.ReactNode
-  badge?: string | number
-  children?: NavItem[]
+interface ResearchControllerProps {
+  research: WorkspaceResearchController
 }
 
-const NAV_ITEMS: NavItem[] = [
+interface ResearchSidebarProps extends ResearchControllerProps {
+  sessionActions: ResearchSessionActions
+}
+
+interface ResearchChild {
+  id: string
+  label: string
+  icon: LucideIcon
+  tab: ResearchTab
+}
+
+const WORKSPACE_CHILDREN: ResearchChild[] = [
   {
     id: 'watchlist',
-    label: 'Watchlist',
-    icon: <Star className="h-3.5 w-3.5" />,
-    children: [
-      { id: 'stock-1', label: '贵州茅台', icon: <TrendingUp className="h-3 w-3" /> },
-      { id: 'stock-2', label: '腾讯控股', icon: <TrendingUp className="h-3 w-3" /> },
-      { id: 'stock-3', label: '宁德时代', icon: <TrendingUp className="h-3 w-3" /> },
-    ],
+    label: '公司',
+    icon: Star,
+    tab: { id: 'research:watchlist', title: '公司', type: 'watchlist' },
   },
   {
     id: 'sectors',
-    label: 'Sectors',
-    icon: <FolderTree className="h-3.5 w-3.5" />,
-    children: [
-      { id: 'sec-1', label: 'Consumer', icon: <BarChart3 className="h-3 w-3" /> },
-      { id: 'sec-2', label: 'Technology', icon: <LineChart className="h-3 w-3" /> },
-      { id: 'sec-3', label: 'Healthcare', icon: <BarChart3 className="h-3 w-3" /> },
-      { id: 'sec-4', label: 'New Energy', icon: <LineChart className="h-3 w-3" /> },
-    ],
-  },
-  {
-    id: 'tools',
-    label: 'Tools',
-    icon: <Wrench className="h-3.5 w-3.5" />,
-    children: [
-      { id: 'tool-dcf', label: 'DCF Valuation', icon: <BarChart3 className="h-3 w-3" />, badge: 'Skill' },
-      { id: 'tool-ratios', label: 'Financial Ratios', icon: <GitCompare className="h-3 w-3" />, badge: 'Skill' },
-      { id: 'tool-compare', label: 'Peer Comparison', icon: <GitCompare className="h-3 w-3" />, badge: 'Skill' },
-    ],
+    label: '行业',
+    icon: Tags,
+    tab: { id: 'research:sectors', title: '行业', type: 'sectors' },
   },
   {
     id: 'notes',
-    label: 'Research Notes',
-    icon: <FileText className="h-3.5 w-3.5" />,
-    children: [
-      { id: 'note-1', label: 'Moutai Memo', icon: <FileText className="h-3 w-3" /> },
-      { id: 'note-2', label: 'Consumer 2025', icon: <FileText className="h-3 w-3" /> },
-    ],
-  },
-  {
-    id: 'sources',
-    label: 'Data Sources',
-    icon: <Database className="h-3.5 w-3.5" />,
-    badge: '2',
+    label: '笔记',
+    icon: NotebookPen,
+    tab: { id: 'research:notes', title: '笔记', type: 'notes' },
   },
 ]
 
-function NavTreeItem({ item, depth = 0 }: { item: NavItem; depth?: number }) {
+function NavigationButton({
+  icon: Icon,
+  label,
+  selected,
+  onClick,
+  disabled,
+  title,
+}: {
+  icon: LucideIcon
+  label: string
+  selected?: boolean
+  onClick?: () => void
+  disabled?: boolean
+  title?: string
+}) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      title={title}
+      className={cn(
+        'flex w-full items-center gap-2 rounded-[6px] px-2 py-[5px] text-[13px] outline-none transition-colors',
+        'focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring',
+        disabled && 'cursor-not-allowed opacity-45',
+        selected
+          ? 'bg-foreground/[0.07] text-foreground'
+          : 'text-foreground/75 hover:bg-sidebar-hover hover:text-foreground',
+      )}
+    >
+      <Icon className="h-3.5 w-3.5 shrink-0 text-foreground/60" />
+      <span className="min-w-0 flex-1 truncate text-left">{label}</span>
+    </button>
+  )
+}
+
+function WorkspaceSection({ research }: ResearchControllerProps) {
   const [expanded, setExpanded] = React.useState(true)
-  const hasChildren = item.children && item.children.length > 0
+  const { state, openTab } = research
+  const overviewSelected = state.middleView.mode === 'research' && state.activeTabId === 'research:overview'
 
   return (
     <div>
-      <button
-        onClick={() => hasChildren && setExpanded(!expanded)}
+      <div
         className={cn(
-          'flex items-center gap-2 w-full px-2 py-1.5 text-xs rounded-[6px] transition-colors',
-          'hover:bg-accent/30 text-foreground/70 hover:text-foreground',
-          depth === 0 ? 'font-medium text-foreground/80' : 'pl-7',
+          'group flex items-center rounded-[6px] text-[13px] outline-none transition-colors',
+          overviewSelected ? 'bg-foreground/[0.07]' : 'hover:bg-sidebar-hover',
         )}
       >
-        <span className="shrink-0 opacity-60">{item.icon}</span>
-        <span className="truncate flex-1 text-left">{item.label}</span>
-        {item.badge && (
-          <span className="shrink-0 text-[10px] px-1.5 py-0.5 rounded-full bg-accent/10 text-accent font-medium">
-            {item.badge}
-          </span>
+        <button
+          type="button"
+          onClick={() => setExpanded(value => !value)}
+          className="ml-1 flex h-7 w-6 shrink-0 items-center justify-center rounded focus-visible:ring-1 focus-visible:ring-ring"
+          aria-label={expanded ? '收起工作区菜单' : '展开工作区菜单'}
+          aria-expanded={expanded}
+        >
+          <ChevronRight className={cn('h-3.5 w-3.5 text-muted-foreground transition-transform', expanded && 'rotate-90')} />
+        </button>
+        <button
+          type="button"
+          onClick={() => openTab({ id: 'research:overview', title: '投研概览', type: 'overview', closable: false })}
+          className="flex min-w-0 flex-1 items-center gap-2 py-[5px] pr-2 text-foreground/80 outline-none"
+        >
+          <BookOpen className="h-3.5 w-3.5 shrink-0 text-foreground/60" />
+          <span className="truncate">工作区</span>
+        </button>
+      </div>
+
+      <AnimatePresence initial={false}>
+        {expanded && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.18, ease: 'easeInOut' }}
+            className="overflow-hidden"
+          >
+            <div className="relative grid gap-0.5 pl-5">
+              <div className="absolute bottom-1 left-[13px] top-1 w-px bg-foreground/10" aria-hidden="true" />
+              {WORKSPACE_CHILDREN.map(child => (
+                <NavigationButton
+                  key={child.id}
+                  icon={child.icon}
+                  label={child.label}
+                  selected={state.middleView.mode === 'research' && state.activeTabId === child.tab.id}
+                  onClick={() => openTab(child.tab)}
+                />
+              ))}
+            </div>
+          </motion.div>
         )}
-        {hasChildren && (
-          <span className="shrink-0 opacity-30">
-            {expanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
-          </span>
-        )}
-      </button>
-      {hasChildren && expanded && (
-        <div>
-          {item.children!.map(child => (
-            <NavTreeItem key={child.id} item={child} depth={depth + 1} />
-          ))}
-        </div>
-      )}
+      </AnimatePresence>
     </div>
   )
 }
 
-export function ResearchSidebar() {
-  const [searchQuery, setSearchQuery] = React.useState('')
+function StandaloneButton({
+  research,
+  view,
+  icon,
+  label,
+}: ResearchControllerProps & { view: StandaloneViewType; icon: LucideIcon; label: string }) {
+  return (
+    <NavigationButton
+      icon={icon}
+      label={label}
+      selected={research.state.middleView.mode === 'standalone' && research.state.middleView.view === view}
+      onClick={() => research.openStandalone(view)}
+    />
+  )
+}
+
+function SourcesSection({ research }: ResearchControllerProps) {
+  const [expanded, setExpanded] = React.useState(true)
 
   return (
+    <div>
+      <button
+        type="button"
+        onClick={() => setExpanded(value => !value)}
+        aria-expanded={expanded}
+        className="flex w-full items-center gap-2 rounded-[6px] px-2 py-[5px] text-[13px] text-foreground/75 outline-none transition-colors hover:bg-sidebar-hover hover:text-foreground focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring"
+      >
+        <ChevronRight className={cn('h-3.5 w-3.5 text-muted-foreground transition-transform', expanded && 'rotate-90')} />
+        <Database className="h-3.5 w-3.5 text-foreground/60" />
+        <span>数据源</span>
+      </button>
+      <AnimatePresence initial={false}>
+        {expanded && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="overflow-hidden pl-5"
+          >
+            <NavigationButton
+              icon={Database}
+              label="MCP"
+              selected={research.state.middleView.mode === 'standalone' && research.state.middleView.view === 'sources-mcp'}
+              onClick={() => research.openStandalone('sources-mcp')}
+            />
+            <NavigationButton
+              icon={Sparkles}
+              label="API"
+              selected={research.state.middleView.mode === 'standalone' && research.state.middleView.view === 'sources-api'}
+              onClick={() => research.openStandalone('sources-api')}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  )
+}
+
+export function ResearchSidebar({ research, sessionActions }: ResearchSidebarProps) {
+  return (
     <>
-      {/* Search */}
-      <div className="shrink-0 px-2 pt-2 pb-1">
-        <div className="relative">
-          <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground/40 pointer-events-none" />
-          <Input
-            placeholder="Search companies, notes..."
-            value={searchQuery}
-            onChange={e => setSearchQuery(e.target.value)}
-            className="h-7 pl-7 text-xs rounded-[6px] bg-muted/20 border-border/30"
-          />
-        </div>
+      <div className="shrink-0 px-2 pb-1.5 pt-2">
+        <NavigationButton
+          icon={Plus}
+          label="新建会话"
+          disabled={sessionActions.isCreating}
+          title="在当前 Workspace 新建会话"
+          onClick={() => { void sessionActions.createSession() }}
+        />
       </div>
 
-      {/* Navigation tree */}
-      <div className="flex-1 min-h-0 overflow-y-auto px-1.5 py-1">
-        <nav className="space-y-0.5">
-          {NAV_ITEMS.map(item => (
-            <NavTreeItem key={item.id} item={item} />
-          ))}
+      <div className="flex-1 min-h-0 overflow-y-auto px-2 py-1">
+        <nav className="grid gap-0.5" aria-label="研究导航">
+          <WorkspaceSection research={research} />
+          <div className="my-1 h-px bg-foreground/5" />
+          <StandaloneButton research={research} view="skills" icon={Zap} label="Skills" />
+          <SourcesSection research={research} />
+          <StandaloneButton research={research} view="scheduled" icon={CalendarClock} label="定时任务" />
         </nav>
       </div>
 
-      {/* Bottom settings */}
-      <div className="shrink-0 border-t border-border/20 px-2 py-1.5">
-        <Button variant="ghost" size="sm" className="w-full justify-start gap-2 text-xs h-7 rounded-[6px] text-foreground/60 hover:text-foreground">
-          <Settings className="h-3.5 w-3.5" />
-          Settings
-        </Button>
+      <div className="shrink-0 px-2 pb-2">
+        <div className="mb-1 h-px bg-foreground/5" aria-hidden="true" />
+        <StandaloneButton research={research} view="settings" icon={Settings} label="设置" />
       </div>
     </>
   )

@@ -16,6 +16,7 @@ import type { LoadedSkill } from '../../../shared/types'
 export interface SkillsListPanelProps {
   skills: LoadedSkill[]
   onDeleteSkill: (skillSlug: string) => void
+  onToggleSkill?: (skillSlug: string, enabled: boolean) => void
   onSkillClick: (skill: LoadedSkill) => void
   selectedSkillSlug?: string | null
   workspaceId?: string
@@ -26,6 +27,7 @@ export interface SkillsListPanelProps {
 export function SkillsListPanel({
   skills,
   onDeleteSkill,
+  onToggleSkill,
   onSkillClick,
   selectedSkillSlug,
   workspaceId,
@@ -83,6 +85,11 @@ export function SkillsListPanel({
                 {t('skillsList.projectBadge')}
               </span>
             )}
+            {skill.metadata.enabled === false && (
+              <span className="shrink-0 text-[10px] px-1.5 py-0.5 rounded-full bg-foreground/5 text-muted-foreground">
+                已停用
+              </span>
+            )}
             <span className="truncate">{skill.metadata.description}</span>
           </span>
         ),
@@ -105,6 +112,11 @@ export function SkillsListPanel({
             canShowInFinder={canRevealLocally}
             onDelete={skill.source === 'workspace' ? () => onDeleteSkill(skill.slug) : undefined}
             canDelete={skill.source === 'workspace'}
+            enabled={skill.metadata.enabled !== false}
+            onToggleEnabled={onToggleSkill && skill.source === 'workspace'
+              ? () => onToggleSkill(skill.slug, skill.metadata.enabled === false)
+              : undefined}
+            canToggleEnabled={skill.source === 'workspace'}
             deleteLabel={skill.source === 'workspace' ? t('skillsList.deleteSkill') : t('skillsList.managedByProject')}
             onSendToWorkspace={hasOtherWorkspaces && skill.source === 'workspace' ? () => {
               setSendResourceSlug(skill.slug)

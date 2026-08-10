@@ -14,8 +14,8 @@ import {
   DrawerContent,
   DrawerHeader,
   DrawerTitle,
-  DrawerClose,
 } from '@/components/ui/drawer'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { cn } from '@/lib/utils'
 import * as storage from '@/lib/local-storage'
 import { navigate, routes } from '@/lib/navigate'
@@ -58,6 +58,7 @@ interface CompactModelSelectorProps {
     inputTokens?: number
     contextWindow?: number
   }
+  presentation?: 'drawer' | 'popover'
 }
 
 export function CompactModelSelector({
@@ -70,6 +71,7 @@ export function CompactModelSelector({
   isEmptySession = false,
   connectionUnavailable = false,
   contextStatus,
+  presentation = 'drawer',
 }: CompactModelSelectorProps) {
   const { t } = useTranslation()
   const [open, setOpen] = React.useState(false)
@@ -165,10 +167,8 @@ export function CompactModelSelector({
     [onModelChange, onConnectionChange, effectiveConnection],
   )
 
-  return (
-    <Drawer open={open} onOpenChange={setOpen}>
-      <DrawerTrigger asChild>
-        <button
+  const trigger = (
+    <button
           type="button"
           aria-label={connectionUnavailable
             ? t('common.unavailable')
@@ -197,15 +197,21 @@ export function CompactModelSelector({
               )}
             </>
           )}
-        </button>
-      </DrawerTrigger>
+    </button>
+  )
 
-      <DrawerContent>
-        <DrawerHeader>
-          <DrawerTitle>{t('common.model')}</DrawerTitle>
-        </DrawerHeader>
-
-        <div className="px-2 pb-4 flex flex-col gap-0.5 max-h-[55vh] overflow-y-auto">
+  return (
+    <CompactModelPickerSurface
+      open={open}
+      onOpenChange={setOpen}
+      presentation={presentation}
+      title={t('common.model')}
+      trigger={trigger}
+    >
+        <div className={cn(
+          'flex flex-col gap-0.5 overflow-y-auto',
+          presentation === 'drawer' ? 'max-h-[55vh] px-2 pb-4' : 'max-h-[min(55vh,440px)] p-1',
+        )}>
           {/* === Models section === */}
           {pickerMode === 'unavailable' ? (
             <div className="flex flex-col items-center justify-center py-6 px-4 text-center">
@@ -291,8 +297,8 @@ export function CompactModelSelector({
                             const showVision = isCompatProvider(conn.providerType)
                             const visionOn = showVision && modelSupportsImages(conn, modelId)
                             return (
-                              <DrawerClose asChild key={modelId}>
                                 <button
+                                  key={modelId}
                                   type="button"
                                   onClick={() => handlePickSwitcherModel(conn.slug, modelId)}
                                   className={cn(
@@ -319,7 +325,6 @@ export function CompactModelSelector({
                                     )}
                                   </div>
                                 </button>
-                              </DrawerClose>
                             )
                           })}
                         </div>
@@ -352,8 +357,8 @@ export function CompactModelSelector({
               const visionOn =
                 showVision && modelSupportsImages(effectiveConnectionDetails!, modelId)
               return (
-                <DrawerClose asChild key={modelId}>
                   <button
+                    key={modelId}
                     type="button"
                     onClick={() => handlePickFlatModel(modelId)}
                     className={cn(
@@ -389,7 +394,6 @@ export function CompactModelSelector({
                       )}
                     </div>
                   </button>
-                </DrawerClose>
               )
             })
           )}
@@ -403,11 +407,14 @@ export function CompactModelSelector({
               {THINKING_LEVELS.map(({ id, nameKey, descriptionKey }) => {
                 const isSelected = thinkingLevel === id
                 return (
-                  <DrawerClose asChild key={id}>
                     <button
+                      key={id}
                       type="button"
                       disabled={thinkingDisabled}
-                      onClick={() => onThinkingLevelChange?.(id)}
+                      onClick={() => {
+                        onThinkingLevelChange?.(id)
+                        setOpen(false)
+                      }}
                       className={cn(
                         'flex items-center justify-between w-full px-3 py-2 rounded-lg text-left transition-colors',
                         thinkingDisabled && 'opacity-50 cursor-not-allowed',
@@ -425,7 +432,6 @@ export function CompactModelSelector({
                         <Check className="h-3 w-3 text-foreground/60 shrink-0 ml-3" />
                       )}
                     </button>
-                  </DrawerClose>
                 )
               })}
             </>
@@ -449,6 +455,49 @@ export function CompactModelSelector({
             </>
           )}
         </div>
+    </CompactModelPickerSurface>
+  )
+}
+
+function CompactModelPickerSurface({
+  open,
+  onOpenChange,
+  presentation,
+  title,
+  trigger,
+  children,
+}: {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  presentation: 'drawer' | 'popover'
+  title: string
+  trigger: React.ReactElement
+  children: React.ReactNode
+}) {
+  if (presentation === 'popover') {
+    return (
+      <Popover open={open} onOpenChange={onOpenChange}>
+        <PopoverTrigger asChild>{trigger}</PopoverTrigger>
+        <PopoverContent
+          side="top"
+          align="end"
+          sideOffset={8}
+          className="w-[320px] max-w-[calc(100vw-24px)] overflow-hidden p-0"
+        >
+          {children}
+        </PopoverContent>
+      </Popover>
+    )
+  }
+
+  return (
+    <Drawer open={open} onOpenChange={onOpenChange}>
+      <DrawerTrigger asChild>{trigger}</DrawerTrigger>
+      <DrawerContent>
+        <DrawerHeader>
+          <DrawerTitle>{title}</DrawerTitle>
+        </DrawerHeader>
+        {children}
       </DrawerContent>
     </Drawer>
   )

@@ -4,7 +4,7 @@ import type { ISessionManager, IBrowserPaneManager, ExecutePromptAutomationInput
 import { RemoteBrowserPaneManager } from './RemoteBrowserPaneManager'
 import { validateFilePath, getWorkspaceAllowedDirs } from '@rocket/server-core/handlers'
 import { createScopedLogger, CONSOLE_LOGGER, type PlatformServices, type Logger } from '@rocket/server-core/runtime'
-import { basename, dirname, join } from 'path'
+import { basename, dirname, join, resolve, relative, normalize } from 'path'
 import { existsSync } from 'fs'
 import { readFile, writeFile, mkdir } from 'fs/promises'
 import { randomUUID } from 'node:crypto'
@@ -84,10 +84,10 @@ import { isParentTaskTool } from '@rocket/shared/utils/toolNames'
 import { restoreFiles } from '@rocket/shared/utils/bundle-files'
 import { getCredentialManager } from '@rocket/shared/credentials'
 import { CraftMcpClient, McpClientPool, McpPoolServer } from '@rocket/shared/mcp'
-import { type Session, type SessionEvent, type FileAttachment, type SendMessageOptions, type UnreadSummary, type RemoteSessionTransferPayload, type ImportRemoteSessionTransferResult, RPC_CHANNELS, generateMessageId } from '@rocket/shared/protocol'
+import { type Session, type SessionEvent, type FileAttachment, type SendMessageOptions, type WorkspaceAgentContextRef, type UnreadSummary, type RemoteSessionTransferPayload, type ImportRemoteSessionTransferResult, RPC_CHANNELS, generateMessageId } from '@rocket/shared/protocol'
 import { messageToStored, storedToMessage, type Message, type StoredAttachment, type ToolDisplayMeta, type TokenUsage } from '@rocket/core/types'
 import { formatPathsToRelative, formatToolInputPaths, perf, encodeIconToDataUrlAsync, getEmojiIcon, resetSummarizationClient, resolveToolIcon, readFileAttachment, selectSpreadMessages, normalizePath } from '@rocket/shared/utils'
-import { loadAllSkills, loadSkillBySlug, invalidateSkillsCache, type LoadedSkill } from '@rocket/shared/skills'
+import { loadAllSkills, loadEnabledSkills, loadSkillBySlug, invalidateSkillsCache, type LoadedSkill } from '@rocket/shared/skills'
 import { invalidateContextFileCache } from '@rocket/shared/prompts/system'
 import { getToolIconsDir, getMiniModel } from '@rocket/shared/config'
 import { getDefaultSummarizationModel } from '@rocket/shared/config/models'
@@ -100,6 +100,14 @@ import { ensureLabelsExist, ensureTaskItemLabel } from '@rocket/shared/labels/cr
 import { loadStatusConfig } from '@rocket/shared/statuses/storage'
 import { AutomationSystem, createPromptHistoryEntry, appendAutomationHistoryEntry, type AutomationSystemMetadataSnapshot } from '@rocket/shared/automations'
 import { buildBackendRuntimeSignature, buildRestartRequiredSignature, filterAttachmentsForModelInput } from './runtime-config'
+import { readWorkspaceAgentContext } from '../services/workspace-research-files'
+import { ensureWorkspaceResearchIndex } from '../services/workspace-research-index'
+import {
+  getWorkspaceResearchScope,
+  removeWorkspaceResearchScopeItem,
+  upsertWorkspaceSectorItem,
+  upsertWorkspaceWatchlistItem,
+} from '../services/workspace-research-scope'
 
 // Import from server-core domain utilities
 import { sanitizeForTitle, shouldActivateBrowserOverlay, normalizeBrowserToolName, rollbackFailedBranchCreation, releaseBrowserOwnershipOnForcedStop } from '@rocket/server-core/domain'
@@ -4283,6 +4291,33 @@ export class SessionManager implements ISessionManager {
 
       // Wire up session self-management tools (set_session_labels, set_session_status, etc.)
       mergeSessionScopedToolCallbacks(managed.id, {
+        manageResearchScopeFn: async (input) => {
+          const current = await getWorkspaceResearchScope(managed.workspace.rootPath)
+          if (input.action === 'list') return current
+          let next
+          if (input.action === 'remove') {
+            if (!input.kind || !input.id || input.confirm !== true) throw new Error('Removal requires kind, id, and confirm=true')
+            next = await removeWorkspaceResearchScopeItem(managed.workspace.rootPath, input.kind, input.id, current.revision)
+          } else if (input.kind === 'watchlist') {
+            const existing = input.id ? current.watchlist.find(item => item.id === input.id) : undefined
+            const item = { ...(existing ?? {}), ...(input.item ?? {}), ...(input.id ? { id: input.id } : {}) }
+            next = await upsertWorkspaceWatchlistItem(managed.workspace.rootPath, {
+              expectedRevision: current.revision,
+              item: item as Parameters<typeof upsertWorkspaceWatchlistItem>[1]['item'],
+            })
+          } else if (input.kind === 'sector') {
+            const existing = input.id ? current.sectors.find(item => item.id === input.id) : undefined
+            const item = { ...(existing ?? {}), ...(input.item ?? {}), ...(input.id ? { id: input.id } : {}) }
+            next = await upsertWorkspaceSectorItem(managed.workspace.rootPath, {
+              expectedRevision: current.revision,
+              item: item as Parameters<typeof upsertWorkspaceSectorItem>[1]['item'],
+            })
+          } else {
+            throw new Error('kind is required for an upsert action')
+          }
+          this.sendEvent({ type: 'workspace_research_scope_changed', sessionId: managed.id, revision: next.revision }, managed.workspace.id)
+          return next
+        },
         setSessionLabelsFn: async (sessionId: string | undefined, labels: string[]) => {
           await this.setSessionLabels(sessionId ?? managed.id, labels)
         },
@@ -4312,7 +4347,7 @@ export class SessionManager implements ISessionManager {
           }
           if (input.skills?.length) {
             // loadAllSkills matches dispatch-time [skill:slug] resolution (global + workspace).
-            const available = new Set(loadAllSkills(ws.rootPath).map(s => s.slug))
+            const available = new Set(loadEnabledSkills(ws.rootPath).map(s => s.slug))
             const missing = input.skills.filter(s => !available.has(s))
             if (missing.length) warnings.push(`Unknown skills (kept in the spec, but they don't exist in this workspace): ${missing.join(', ')}`)
           }
@@ -5776,6 +5811,25 @@ export class SessionManager implements ISessionManager {
     if (!managed) {
       throw new Error(`Session ${sessionId} not found`)
     }
+    if (options?.researchContexts?.length) {
+      if (options.researchContexts.length > 5) throw new Error('Too many research contexts (maximum 5)')
+      const validatedContexts: WorkspaceAgentContextRef[] = []
+      const seenPaths = new Set<string>()
+      for (const requested of options.researchContexts) {
+        if (requested.workspaceId !== managed.workspace.id) throw new Error('Research context workspace does not match the session workspace')
+        const actual = await readWorkspaceAgentContext(managed.workspace.rootPath, managed.workspace.id, requested.relativePath)
+        if (actual.version !== requested.version) throw new Error(`VERSION_CONFLICT: ${requested.relativePath} changed after it was attached`)
+        if (seenPaths.has(actual.relativePath)) continue
+        seenPaths.add(actual.relativePath)
+        validatedContexts.push({
+          ...actual,
+          writePolicy: requested.writePolicy === 'versioned-write' && actual.kind === 'markdown'
+            ? 'versioned-write'
+            : 'read-only',
+        })
+      }
+      options = { ...options, researchContexts: validatedContexts }
+    }
     this.setLastMessageClientId(sessionId, rpcContext?.callerClientId)
 
     // Source-activation auto-retry dedup (rockets-oss#804). When the server
@@ -5811,7 +5865,9 @@ export class SessionManager implements ISessionManager {
       const connection = resolveSessionConnection(managed.llmConnection, undefined)
       // Fallback to 'steer' when no connection is resolvable — preserves
       // today's exact behavior (call redirect, take whatever it returns).
-      const behavior = connection ? resolveMidStreamBehavior(connection) : 'steer'
+      const behavior = options?.researchContexts?.length
+        ? 'queue'
+        : connection ? resolveMidStreamBehavior(connection) : 'steer'
 
       const agent = managed.agent
       let steered = false
@@ -6158,6 +6214,18 @@ export class SessionManager implements ISessionManager {
         effectiveMessage = `${message}\n\n<system-reminder>The previous assistant response was interrupted by the user and may be incomplete. Do not repeat or continue the interrupted response unless asked. Focus on the new message above.</system-reminder>`
         managed.wasInterrupted = false
       }
+      if (options?.researchContexts?.length) {
+        const contextLines = options.researchContexts.map(context => [
+          `- path: ${context.relativePath}`,
+          `  kind: ${context.kind}`,
+          `  mediaType: ${context.mediaType}`,
+          `  size: ${context.size}`,
+          `  modifiedAt: ${context.modifiedAt}`,
+          `  version: ${context.version}`,
+          `  writePolicy: ${context.writePolicy}`,
+        ].join('\n')).join('\n')
+        effectiveMessage += `\n\n<workspace_research_context>\nThe user attached the following workspace resources. Only paths and metadata are provided; use the Read tool only when their contents are needed. Do not use Bash to access these resources. Only resources marked versioned-write may be changed with Edit or Write; all other resources are read-only.\n${contextLines}\n</workspace_research_context>`
+      }
 
       const messageBackendContext = this.resolveBackendContextForSession({
         sessionConnectionSlug: managed.llmConnection,
@@ -6181,7 +6249,9 @@ export class SessionManager implements ISessionManager {
       }
 
       sendSpan.mark('chat.starting')
-      const chatIterator = agent.chat(effectiveMessage, modelInputAttachments.attachments)
+      const chatIterator = agent.chat(effectiveMessage, modelInputAttachments.attachments, {
+        researchContexts: options?.researchContexts,
+      })
       sessionLog.info('Got chat iterator, starting iteration...')
 
       for await (const event of chatIterator) {
@@ -7884,6 +7954,28 @@ export class SessionManager implements ISessionManager {
           }, workspaceId)
         }
 
+        if (!inferredError && ['Write', 'Edit', 'MultiEdit'].includes(existingToolMsg?.toolName ?? toolName)) {
+          const rawPath = existingToolMsg?.toolInput?.file_path ?? existingToolMsg?.toolInput?.path
+          if (typeof rawPath === 'string') {
+            const absolutePath = normalize(resolve(managed.workspace.rootPath, rawPath))
+            const relativePath = relative(normalize(resolve(managed.workspace.rootPath)), absolutePath).replaceAll('\\', '/')
+            if (/^(notes|documents)\//i.test(relativePath) && relativePath.toLowerCase().endsWith('.md')) {
+              try {
+                const context = await readWorkspaceAgentContext(managed.workspace.rootPath, managed.workspace.id, relativePath)
+                await ensureWorkspaceResearchIndex(managed.workspace.rootPath, managed.workspace.id)
+                this.sendEvent({
+                  type: 'workspace_research_changed',
+                  sessionId,
+                  relativePath: context.relativePath,
+                  version: context.version,
+                }, workspaceId)
+              } catch (refreshError) {
+                sessionLog.warn('Failed to refresh research file after Agent write:', refreshError)
+              }
+            }
+          }
+        }
+
         // Safety net: when a parent Task completes, mark all its still-pending child tools as completed.
         // This handles the case where child tool_result events never arrive (e.g., subagent internal tools
         // whose results aren't surfaced through the parent stream).
@@ -8569,7 +8661,7 @@ export class SessionManager implements ISessionManager {
    */
   private resolveAutomationMentions(workspaceRootPath: string, mentions: string[]): { sourceSlugs: string[]; skillSlugs: string[] } | undefined {
     const sources = loadWorkspaceSources(workspaceRootPath)
-    const skills = loadAllSkills(workspaceRootPath)
+    const skills = loadEnabledSkills(workspaceRootPath)
     const sourceSlugs: string[] = []
     const skillSlugs: string[] = []
 

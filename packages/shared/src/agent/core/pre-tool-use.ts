@@ -19,7 +19,7 @@
 
 import { existsSync, readFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
-import { join } from 'node:path';
+import { join, resolve, relative, normalize } from 'node:path';
 import { expandPath } from '../../utils/paths.ts';
 import {
   detectConfigFileType,
@@ -475,6 +475,8 @@ export interface PreToolUseInput {
   backendMetadata?: { intent?: string; displayName?: string };
   /** RTK Bash-rewrite context (undefined when toggle is off or rtk binary missing) */
   rtkContext?: import('./rtk-rewrite.ts').RtkContext;
+  /** Version-pinned research resources attached to the current user turn. */
+  researchContexts?: import('../../protocol/dto.ts').WorkspaceAgentContextRef[];
   /** Debug callback */
   onDebug?: (message: string) => void;
 }
@@ -504,6 +506,53 @@ const BUILT_IN_MCP_SERVERS = new Set(['session', 'rockets-docs']);
 
 /** File write tools that require permission in ask mode */
 const FILE_WRITE_TOOLS = new Set(['Write', 'Edit', 'MultiEdit', 'NotebookEdit']);
+
+function checkResearchContextWrite(
+  toolName: string,
+  input: Record<string, unknown>,
+  workspaceRootPath: string,
+  contexts: NonNullable<PreToolUseInput['researchContexts']>,
+): string | null {
+  if (contexts.length === 0) return null;
+
+  if (toolName === 'Bash' && typeof input.command === 'string') {
+    const command = input.command.toLowerCase();
+    const referenced = contexts.find(context => {
+      const absolute = resolve(workspaceRootPath, context.relativePath);
+      const fileName = context.relativePath.split(/[\\/]/).pop()?.toLowerCase();
+      return command.includes(context.relativePath.toLowerCase())
+        || command.includes(context.relativePath.replaceAll('\\', '/').toLowerCase())
+        || command.includes(absolute.toLowerCase())
+        || command.includes(absolute.replaceAll('\\', '/').toLowerCase())
+        || (!!fileName && command.includes(fileName));
+    });
+    if (referenced) {
+      return `Bash cannot access attached research context "${referenced.relativePath}". Use Read for on-demand access and Edit/Write for version-checked Markdown changes.`;
+    }
+  }
+
+  if (!FILE_WRITE_TOOLS.has(toolName)) return null;
+  const rawPath = input.file_path ?? input.path ?? input.notebook_path;
+  if (typeof rawPath !== 'string') return null;
+  const targetPath = normalize(resolve(workspaceRootPath, rawPath));
+  const context = contexts.find(candidate => normalize(resolve(workspaceRootPath, candidate.relativePath)) === targetPath);
+  if (!context) return null;
+  if (context.writePolicy !== 'versioned-write' || context.kind !== 'markdown') {
+    return `Attached research context "${context.relativePath}" is read-only for this turn.`;
+  }
+  if (!existsSync(targetPath)) {
+    return `Attached research context "${context.relativePath}" no longer exists. Reopen it before writing.`;
+  }
+  const rootRelative = relative(normalize(resolve(workspaceRootPath)), targetPath);
+  if (rootRelative.startsWith('..') || rootRelative === '') {
+    return `Research context write target is outside the active workspace.`;
+  }
+  const actualVersion = createHash('sha256').update(readFileSync(targetPath)).digest('hex');
+  if (actualVersion !== context.version) {
+    return `VERSION_CONFLICT: "${context.relativePath}" changed after it was attached. Read the latest version and ask the user to resend before writing.`;
+  }
+  return null;
+}
 
 /**
  * Centralized PreToolUse pipeline.
@@ -645,6 +694,14 @@ export function runPreToolUseChecks(ctx: PreToolUseInput): PreToolUseCheckResult
     currentInput = pathResult.input;
     wasModified = true;
   }
+
+  const researchWriteError = checkResearchContextWrite(
+    toolName,
+    currentInput,
+    workspaceRootPath,
+    ctx.researchContexts ?? [],
+  );
+  if (researchWriteError) return { type: 'block', reason: researchWriteError };
 
   // 5b. Config file validation
   const configResult = validateConfigWrite(toolName, currentInput, workspaceRootPath, onDebug);

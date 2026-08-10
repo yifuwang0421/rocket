@@ -105,6 +105,7 @@ async function getExpectedCoreChannels(): Promise<Set<string>> {
     workspace,
     onboarding,
     resources,
+    researchScope,
     transfer,
   ] = await Promise.all([
     import('@rocket/server-core/handlers/rpc/auth'),
@@ -124,6 +125,7 @@ async function getExpectedCoreChannels(): Promise<Set<string>> {
     import('@rocket/server-core/handlers/rpc/workspace'),
     import('@rocket/server-core/handlers/rpc/onboarding'),
     import('@rocket/server-core/handlers/rpc/resources'),
+    import('@rocket/server-core/handlers/rpc/research-scope'),
     import('@rocket/server-core/handlers/rpc/transfer'),
   ])
 
@@ -145,6 +147,7 @@ async function getExpectedCoreChannels(): Promise<Set<string>> {
     ...workspace.CORE_HANDLED_CHANNELS,
     ...onboarding.HANDLED_CHANNELS,
     ...resources.HANDLED_CHANNELS,
+    ...researchScope.HANDLED_CHANNELS,
     ...transfer.HANDLED_CHANNELS,
   ])
 }

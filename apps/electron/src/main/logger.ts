@@ -35,6 +35,15 @@ function resolveDebugMode(): boolean {
 
 export const isDebugMode = resolveDebugMode()
 
+// electron-log enables its main-process IPC transport in development. That
+// transport mirrors every main log record back into each renderer console.
+// Main windows must never receive main-process logs: if a renderer console is
+// observed by the main process, the mirrored record creates an unbounded
+// main -> renderer console -> main feedback loop. Renderer-originated logs
+// still travel in the opposite direction through log.initialize().
+const ipcTransport = log.transports.ipc
+if (ipcTransport) ipcTransport.level = false
+
 // Configure transports based on debug mode
 if (isDebugMode) {
   // JSON format for file (agent-parseable)

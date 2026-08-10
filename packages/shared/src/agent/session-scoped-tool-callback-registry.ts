@@ -85,6 +85,8 @@ export interface SessionScopedToolCallbacks {
   createTaskFn?: (
     input: import('@rocket/session-tools-core').CreateTaskInput
   ) => Promise<import('@rocket/session-tools-core').CreateTaskResult>;
+  /** Manage Workspace watchlist and sector research scope. */
+  manageResearchScopeFn?: (input: import('@rocket/session-tools-core').ManageResearchScopeArgs) => Promise<unknown>;
 }
 
 // Registry of callbacks keyed by sessionId

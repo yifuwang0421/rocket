@@ -213,9 +213,20 @@ export function matcherMatchesSdk(matcher: AutomationMatcher, event: AgentEvent,
  * values into the string "undefined".
  */
 export function cleanEnv(): Record<string, string> {
-  return Object.fromEntries(
+  const env = Object.fromEntries(
     Object.entries(process.env).filter((e): e is [string, string] => e[1] !== undefined)
   );
+
+  // Bun on Windows can expose the executable search path as `Path` while
+  // automation consumers use the cross-platform `PATH` spelling. Preserve the
+  // original key and add the canonical alias so spawned commands behave the
+  // same across runtimes.
+  if (!env.PATH) {
+    const windowsPathKey = Object.keys(env).find((key) => key.toUpperCase() === 'PATH');
+    if (windowsPathKey) env.PATH = env[windowsPathKey]!;
+  }
+
+  return env;
 }
 
 /** Keys skipped when iterating payload fields for env vars */
